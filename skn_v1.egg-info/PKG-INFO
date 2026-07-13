@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: skn-v1
+Version: 1.7.0
+Summary: Sovereign Kinematic Node
+Requires-Python: >=3.9
+Requires-Dist: numpy
+Requires-Dist: scipy
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
