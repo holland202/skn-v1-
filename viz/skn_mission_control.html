@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SKN-V1 // MISSION CONTROL</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #050508;
+    color: #e0e0e5;
+    font-family: 'Courier New', monospace;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+  .skn-mission {
+    padding: 12px;
+    height: 100vh;
+    position: relative;
+    overflow: hidden;
+  }
+  .skn-mission::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: 
+      repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(0,255,200,0.03) 39px, rgba(0,255,200,0.03) 40px),
+      repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(0,255,200,0.03) 39px, rgba(0,255,200,0.03) 40px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .skn-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    position: relative;
+    z-index: 1;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .skn-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #00ffc8;
+    letter-spacing: 2px;
+  }
+  .skn-status {
+    display: flex;
+    gap: 12px;
+    font-size: 10px;
+    flex-wrap: wrap;
+  }
+  .skn-status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 4px;
+    animation: pulse 2s infinite;
+  }
+  .skn-status-dot.online { background: #00ff88; box-shadow: 0 0 6px #00ff88; }
+  .skn-status-dot.warn { background: #ffaa00; box-shadow: 0 0 6px #ffaa00; }
+  .skn-status-dot.critical { background: #ff0044; box-shadow: 0 0 6px #ff0044; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .skn-main {
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    gap: 12px;
+    position: relative;
+    z-index: 1;
+    height: calc(100vh - 60px);
+  }
+  @media (max-width: 768px) {
+    .skn-main { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+  }
+  .skn-viz {
+    background: rgba(10,10,15,0.8);
+    border: 1px solid rgba(0,255,200,0.15);
+    border-radius: 8px;
+    padding: 10px;
+    position: relative;
+    min-height: 0;
+  }
+  .skn-viz-label {
+    position: absolute;
+    top: 8px;
+    left: 12px;
+    font-size: 9px;
+    color: rgba(0,255,200,0.5);
+    letter-spacing: 1px;
+  }
+  .skn-canvas-container {
+    width: 100%;
+    height: 100%;
+  }
+  #swarmCanvas { width: 100%; height: 100%; display: block; }
+  .skn-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+  }
+  .skn-panel {
+    background: rgba(10,10,15,0.8);
+    border: 1px solid rgba(0,255,200,0.1);
+    border-radius: 8px;
+    padding: 10px;
+  }
+  .skn-panel-title {
+    font-size: 9px;
+    color: rgba(0,255,200,0.5);
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+  .skn-metric {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 3px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .skn-metric:last-child { border-bottom: none; }
+  .skn-metric-label { font-size: 10px; color: rgba(224,224,229,0.5); }
+  .skn-metric-value {
+    font-size: 12px;
+    font-weight: 700;
+    color: #00ffc8;
+    font-variant-numeric: tabular-nums;
+  }
+  .skn-metric-value.warn { color: #ffaa00; }
+  .skn-metric-value.critical { color: #ff0044; }
+  .skn-node-list { display: flex; flex-direction: column; gap: 5px; }
+  .skn-node-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 6px;
+    background: rgba(0,255,200,0.03);
+    border-radius: 4px;
+    border-left: 2px solid #00ffc8;
+    font-size: 10px;
+  }
+  .skn-node-item.docked { border-left-color: #aa00ff; }
+  .skn-node-item.alert { border-left-color: #ff0044; background: rgba(255,0,68,0.05); }
+  .skn-node-id { font-weight: 700; color: #e0e0e5; min-width: 55px; }
+  .skn-node-pos { color: rgba(224,224,229,0.4); font-size: 9px; flex: 1; }
+  .skn-node-vault { color: #00ffc8; font-size: 9px; }
+  .skn-controls { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .skn-btn {
+    flex: 1;
+    min-width: 80px;
+    padding: 6px 8px;
+    background: rgba(0,255,200,0.08);
+    border: 1px solid rgba(0,255,200,0.2);
+    color: #00ffc8;
+    font-family: inherit;
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .skn-btn:hover {
+    background: rgba(0,255,200,0.15);
+    border-color: rgba(0,255,200,0.4);
+  }
+  .skn-btn.active {
+    background: rgba(0,255,200,0.2);
+    border-color: #00ffc8;
+    box-shadow: 0 0 12px rgba(0,255,200,0.2);
+  }
+  .skn-btn.danger {
+    background: rgba(255,0,68,0.08);
+    border-color: rgba(255,0,68,0.2);
+    color: #ff0044;
+  }
+  .skn-btn.danger:hover {
+    background: rgba(255,0,68,0.15);
+    border-color: rgba(255,0,68,0.4);
+  }
+  .skn-log {
+    margin-top: 8px;
+    padding: 6px;
+    background: rgba(0,0,0,0.4);
+    border-radius: 4px;
+    font-size: 9px;
+    color: rgba(224,224,229,0.4);
+    height: 70px;
+    overflow-y: auto;
+    font-family: inherit;
+  }
+  .skn-log-entry { margin: 2px 0; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateX(-4px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  .skn-log-time { color: rgba(0,255,200,0.4); }
+  .skn-log-msg { color: rgba(224,224,229,0.7); }
+  .skn-log-msg.dock { color: #aa00ff; }
+  .skn-log-msg.alert { color: #ff0044; }
+  .skn-log-msg.success { color: #00ff88; }
+</style>
+</head>
+<body>
+<div class="skn-mission">
+  <div class="skn-header">
+    <div class="skn-title">SKN-V1 // SOVEREIGN KINEMATIC NODE</div>
+    <div class="skn-status">
+      <span><span class="skn-status-dot online"></span>MESH: 4/4</span>
+      <span><span class="skn-status-dot online"></span>VAULT: ACTIVE</span>
+      <span><span class="skn-status-dot online"></span>PQ: STANDBY</span>
+    </div>
+  </div>
+  <div class="skn-main">
+    <div class="skn-viz">
+      <div class="skn-viz-label">FORMATION VIEW // TETRAHEDRON SCALE 20M</div>
+      <div class="skn-canvas-container">
+        <canvas id="swarmCanvas"></canvas>
+      </div>
+    </div>
+    <div class="skn-sidebar">
+      <div class="skn-panel">
+        <div class="skn-panel-title">Swarm Telemetry</div>
+        <div class="skn-metric">
+          <span class="skn-metric-label">Centroid error</span>
+          <span class="skn-metric-value" id="centroidErr">0.0000 m</span>
+        </div>
+        <div class="skn-metric">
+          <span class="skn-metric-label">Formation error</span>
+          <span class="skn-metric-value" id="formErr">0.0000 m</span>
+        </div>
+        <div class="skn-metric">
+          <span class="skn-metric-label">Betti-1 β₁</span>
+          <span class="skn-metric-value" id="betti1">0</span>
+        </div>
+        <div class="skn-metric">
+          <span class="skn-metric-label">Vault depth</span>
+          <span class="skn-metric-value" id="vaultDepth">0</span>
+        </div>
+        <div class="skn-metric">
+          <span class="skn-metric-label">Fisher norm</span>
+          <span class="skn-metric-value" id="fisherNorm">0.00</span>
+        </div>
+      </div>
+      <div class="skn-panel">
+        <div class="skn-panel-title">Node Status</div>
+        <div class="skn-node-list" id="nodeList">
+          <div class="skn-node-item" data-id="SKN-000">
+            <span class="skn-node-id">SKN-000</span>
+            <span class="skn-node-pos">[+12.4, -3.2, +8.1]</span>
+            <span class="skn-node-vault">V:0</span>
+          </div>
+          <div class="skn-node-item" data-id="SKN-001">
+            <span class="skn-node-id">SKN-001</span>
+            <span class="skn-node-pos">[-8.7, +14.3, -2.5]</span>
+            <span class="skn-node-vault">V:0</span>
+          </div>
+          <div class="skn-node-item" data-id="SKN-002">
+            <span class="skn-node-id">SKN-002</span>
+            <span class="skn-node-pos">[+5.1, +7.8, -11.2]</span>
+            <span class="skn-node-vault">V:0</span>
+          </div>
+          <div class="skn-node-item" data-id="SKN-003">
+            <span class="skn-node-id">SKN-003</span>
+            <span class="skn-node-pos">[-9.8, -12.1, +5.4]</span>
+            <span class="skn-node-vault">V:0</span>
+          </div>
+        </div>
+      </div>
+      <div class="skn-panel">
+        <div class="skn-panel-title">Mission Control</div>
+        <div class="skn-controls">
+          <button class="skn-btn active" id="btnForm" onclick="setMode('formation')">Formation</button>
+          <button class="skn-btn" id="btnRend" onclick="setMode('rendezvous')">Rendezvous</button>
+        </div>
+        <div class="skn-controls">
+          <button class="skn-btn danger" id="btnKill" onclick="killNode()">Kill Node</button>
+          <button class="skn-btn" id="btnDock" onclick="dockNodes()">C-CPL Dock</button>
+        </div>
+        <div class="skn-log" id="logPanel">
+          <div class="skn-log-entry"><span class="skn-log-time">[T+0.00]</span> <span class="skn-log-msg">SKN-V1 mission control initialized</span></div>
+          <div class="skn-log-entry"><span class="skn-log-time">[T+0.00]</span> <span class="skn-log-msg">4 nodes online. Fisher metrics calibrated.</span></div>
+          <div class="skn-log-entry"><span class="skn-log-time">[T+0.00]</span> <span class="skn-log-msg">Formation target: tetrahedron, scale 20m</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function() {
+  const canvas = document.getElementById('swarmCanvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, cx, cy;
+  function resize() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    W = rect.width;
+    H = rect.height;
+    canvas.width = W;
+    canvas.height = H;
+    cx = W / 2;
+    cy = H / 2;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  const scale = 70;
+  const targets = [
+    { x: 1, y: 1, z: 1 }, { x: 1, y: -1, z: -1 },
+    { x: -1, y: 1, z: -1 }, { x: -1, y: -1, z: 1 }
+  ].map(t => ({ x: t.x * scale, y: t.y * scale, z: t.z * scale }));
+  let nodes = [
+    { id: 'SKN-000', x: 150, y: -100, z: 80, vx: 0, vy: 0, vz: 0, vault: 0, docked: false, alive: true, color: '#00ffc8' },
+    { id: 'SKN-001', x: -120, y: 140, z: -60, vx: 0, vy: 0, vz: 0, vault: 0, docked: false, alive: true, color: '#00aaff' },
+    { id: 'SKN-002', x: 80, y: 100, z: -110, vx: 0, vy: 0, vz: 0, vault: 0, docked: false, alive: true, color: '#ff6b35' },
+    { id: 'SKN-003', x: -100, y: -130, z: 70, vx: 0, vy: 0, vz: 0, vault: 0, docked: false, alive: true, color: '#ff00aa' }
+  ];
+  let mode = 'formation', time = 0, vaultTotal = 0, killedNode = null, dockedPair = null;
+  function project(x, y, z) {
+    const rotY = time * 0.3, rotX = 0.4;
+    const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+    const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+    let rx = x * cosY - z * sinY;
+    let rz = x * sinY + z * cosY;
+    let ry = y * cosX - rz * sinX;
+    rz = y * sinX + rz * cosX;
+    const fov = 400, dist = 300;
+    const s = fov / (rz + dist);
+    return { x: cx + rx * s, y: cy + ry * s, s: s, z: rz };
+  }
+  function updateNodes() {
+    const alive = nodes.filter(n => n.alive);
+    if (mode === 'formation') {
+      alive.forEach((node, i) => {
+        if (killedNode && node.id === killedNode) return;
+        const t = targets[i % targets.length];
+        node.vx += (t.x - node.x) * 0.008;
+        node.vy += (t.y - node.y) * 0.008;
+        node.vz += (t.z - node.z) * 0.008;
+        node.vx *= 0.92; node.vy *= 0.92; node.vz *= 0.92;
+        node.x += node.vx; node.y += node.vy; node.z += node.vz;
+      });
+    } else {
+      alive.forEach(node => {
+        node.vx += (-node.x) * 0.006;
+        node.vy += (-node.y) * 0.006;
+        node.vz += (-node.z) * 0.006;
+        node.vx *= 0.94; node.vy *= 0.94; node.vz *= 0.94;
+        node.x += node.vx; node.y += node.vy; node.z += node.vz;
+      });
+    }
+    for (let i = 0; i < alive.length; i++) {
+      for (let j = i + 1; j < alive.length; j++) {
+        const ni = alive[i], nj = alive[j];
+        const dx = ni.x - nj.x, dy = ni.y - nj.y, dz = ni.z - nj.z;
+        const dist = Math.sqrt(dx*dx + dy*dy + dz*dz) || 1;
+        const targetDist = mode === 'formation' ? 110 : 0;
+        const force = (dist - targetDist) * 0.002;
+        const fx = (dx / dist) * force, fy = (dy / dist) * force, fz = (dz / dist) * force;
+        ni.vx -= fx; ni.vy -= fy; ni.vz -= fz;
+        nj.vx += fx; nj.vy += fy; nj.vz += fz;
+      }
+    }
+    nodes.forEach(n => { if (n.alive && Math.random() < 0.3) { n.vault++; vaultTotal++; } });
+  }
+  function drawGrid() {
+    ctx.strokeStyle = 'rgba(0,255,200,0.06)'; ctx.lineWidth = 0.5;
+    for (let i = -3; i <= 3; i++) {
+      const p1 = project(i * 100, -300, 0), p2 = project(i * 100, 300, 0);
+      ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+      const p3 = project(-300, i * 100, 0), p4 = project(300, i * 100, 0);
+      ctx.beginPath(); ctx.moveTo(p3.x, p3.y); ctx.lineTo(p4.x, p4.y); ctx.stroke();
+    }
+  }
+  function drawConnections() {
+    const alive = nodes.filter(n => n.alive);
+    ctx.strokeStyle = 'rgba(0,255,200,0.15)'; ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    for (let i = 0; i < alive.length; i++) {
+      for (let j = i + 1; j < alive.length; j++) {
+        const pi = project(alive[i].x, alive[i].y, alive[i].z);
+        const pj = project(alive[j].x, alive[j].y, alive[j].z);
+        ctx.beginPath(); ctx.moveTo(pi.x, pi.y); ctx.lineTo(pj.x, pj.y); ctx.stroke();
+      }
+    }
+    ctx.setLineDash([]);
+    if (dockedPair) {
+      const n1 = nodes.find(n => n.id === dockedPair[0]);
+      const n2 = nodes.find(n => n.id === dockedPair[1]);
+      if (n1 && n2 && n1.alive && n2.alive) {
+        const p1 = project(n1.x, n1.y, n1.z), p2 = project(n2.x, n2.y, n2.z);
+        ctx.strokeStyle = '#aa00ff'; ctx.lineWidth = 2; ctx.shadowColor = '#aa00ff'; ctx.shadowBlur = 10;
+        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+    }
+  }
+  function drawNodes() {
+    const sorted = [...nodes].sort((a, b) => {
+      const pa = project(a.x, a.y, a.z), pb = project(b.x, b.y, b.z);
+      return pb.z - pa.z;
+    });
+    sorted.forEach(node => {
+      if (!node.alive) return;
+      const p = project(node.x, node.y, node.z);
+      const r = Math.max(3, 7 * p.s);
+      const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 3);
+      glow.addColorStop(0, node.color + '66'); glow.addColorStop(1, node.color + '00');
+      ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(p.x, p.y, r * 3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = node.color; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = node.color; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(p.x, p.y, r + 3, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = 'rgba(224,224,229,0.7)'; ctx.font = '9px Courier New'; ctx.textAlign = 'center';
+      ctx.fillText(node.id, p.x, p.y + r + 14);
+      const vScale = 15;
+      const vp = project(node.x + node.vx * vScale, node.y + node.vy * vScale, node.z + node.vz * vScale);
+      ctx.strokeStyle = node.color + '88'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(vp.x, vp.y); ctx.stroke();
+    });
+    if (mode === 'formation') {
+      targets.forEach(t => {
+        const p = project(t.x, t.y, t.z);
+        ctx.strokeStyle = 'rgba(0,255,200,0.3)'; ctx.lineWidth = 1; ctx.setLineDash([2, 4]);
+        ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(0,255,200,0.2)'; ctx.beginPath(); ctx.arc(p.x, p.y, 1.5, 0, Math.PI * 2); ctx.fill();
+      });
+    }
+  }
+  function updateUI() {
+    const alive = nodes.filter(n => n.alive);
+    const cx_ = alive.reduce((s, n) => s + n.x, 0) / alive.length;
+    const cy_ = alive.reduce((s, n) => s + n.y, 0) / alive.length;
+    const cz_ = alive.reduce((s, n) => s + n.z, 0) / alive.length;
+    let formErr = 0;
+    alive.forEach((n, i) => {
+      const t = targets[i % targets.length];
+      formErr += Math.sqrt((n.x - t.x)**2 + (n.y - t.y)**2 + (n.z - t.z)**2);
+    });
+    formErr /= alive.length;
+    document.getElementById('centroidErr').textContent = (Math.sqrt(cx_*cx_ + cy_*cy_ + cz_*cz_) / 10).toFixed(4) + ' m';
+    document.getElementById('formErr').textContent = (formErr / 10).toFixed(4) + ' m';
+    document.getElementById('betti1').textContent = killedNode ? '1' : '0';
+    document.getElementById('vaultDepth').textContent = vaultTotal.toLocaleString();
+    document.getElementById('fisherNorm').textContent = (2.5 + Math.sin(time * 0.05) * 0.3).toFixed(2);
+    const nodeList = document.getElementById('nodeList');
+    nodeList.innerHTML = '';
+    nodes.forEach(n => {
+      const div = document.createElement('div');
+      div.className = 'skn-node-item' + (n.docked ? ' docked' : '') + (!n.alive ? ' alert' : '');
+      div.innerHTML = `<span class=\"skn-node-id\">${n.id}</span><span class=\"skn-node-pos\">[${n.x.toFixed(1)}, ${n.y.toFixed(1)}, ${n.z.toFixed(1)}]</span><span class=\"skn-node-vault\">V:${n.vault}</span>`;\n      nodeList.appendChild(div);\n    });\n  }\n  function addLog(msg, type) {\n    const panel = document.getElementById('logPanel');\n    const entry = document.createElement('div');\n    entry.className = 'skn-log-entry';\n    const t = (time / 60).toFixed(2);\n    entry.innerHTML = `<span class=\"skn-log-time\">[T+${t}]</span> <span class=\"skn-log-msg ${type || ''}\">${msg}</span>`;\n    panel.appendChild(entry); panel.scrollTop = panel.scrollHeight;\n    while (panel.children.length > 8) panel.removeChild(panel.firstChild);\n  }\n  window.setMode = function(m) {\n    mode = m;\n    document.getElementById('btnForm').classList.toggle('active', m === 'formation');\n    document.getElementById('btnRend').classList.toggle('active', m === 'rendezvous');\n    addLog('Mode switch: ' + m.toUpperCase(), 'success');\n  };\n  window.killNode = function() {\n    if (killedNode) {\n      const n = nodes.find(n => n.id === killedNode);\n      if (n) { n.alive = true; killedNode = null; }\n      addLog('Node restored. Mesh healing...', 'success');\n      document.querySelector('.skn-status span:nth-child(1)').innerHTML = '<span class=\"skn-status-dot online\"></span>MESH: 4/4';\n      return;\n    }\n    const alive = nodes.filter(n => n.alive);\n    if (alive.length <= 1) return;\n    const victim = alive[Math.floor(Math.random() * alive.length)];\n    victim.alive = false; killedNode = victim.id;\n    addLog('CRITICAL: ' + victim.id + ' OFFLINE. beta1 > 0. FRP triggered.', 'alert');\n    document.querySelector('.skn-status span:nth-child(1)').innerHTML = '<span class=\"skn-status-dot warn\"></span>MESH: 3/4';\n  };\n  window.dockNodes = function() {\n    if (dockedPair) {\n      dockedPair = null; nodes.forEach(n => n.docked = false);\n      addLog('C-CPL lock released', 'dock');\n      document.getElementById('btnDock').textContent = 'C-CPL Dock';\n      return;\n    }\n    const alive = nodes.filter(n => n.alive);\n    if (alive.length < 2) return;\n    const i = Math.floor(Math.random() * alive.length);\n    let j = Math.floor(Math.random() * alive.length);\n    while (j === i) j = Math.floor(Math.random() * alive.length);\n    alive[i].docked = true; alive[j].docked = true;\n    dockedPair = [alive[i].id, alive[j].id];\n    addLog('C-CPL LOCK: ' + alive[i].id + ' <-> ' + alive[j].id + '. Manifest signed.', 'dock');\n    document.getElementById('btnDock').textContent = 'Release Lock';\n  };\n  function loop() {\n    time++;\n    updateNodes();\n    ctx.clearRect(0, 0, W, H);\n    drawGrid(); drawConnections(); drawNodes();\n    if (time % 10 === 0) updateUI();\n    requestAnimationFrame(loop);\n  }\n  loop();\n})();\n</script>
+</body>
+</html>
