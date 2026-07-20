@@ -395,3 +395,38 @@ MIT License — see [LICENSE](LICENSE) for details.
 <p align="center">
   <sub>Built with rigor, not hype. v1.7.1 — July 2026</sub>
 </p>
+
+---
+
+## Implementation status (honest map, 2026-07-20)
+
+SKN-V1 is an active research framework. Some subsystems run and are tested today;
+others are designed and described above but not yet implemented. This section is
+the honest boundary so you know what executes on a fresh clone. Visuals and the
+architecture narrative above describe the full **target** system.
+
+**Implemented and tested** (`python tests/run_tests.py` → 15/15 passing):
+- Natural-gradient kinematic formation control — converges (tetrahedron to
+  0.0000 m formation error over 300 steps; verified in `skn/simulation_v3.py`).
+- Propulsion allocator (HET + CMG) — output shape and actuator bounds tested.
+- ISRU monitor — Gibbs-free-energy spontaneous/non-spontaneous filtering, tested.
+- **Evidence Vault** — SHA3-512 tamper-evident hash chain. `verify_chain()` now
+  genuinely recomputes every link and detects edited states, forged hashes, and
+  reordered links (4 anti-vacuity tests). *Was previously vacuous; fixed and
+  tested 2026-07-20.*
+- Swarm gossip consensus — present in `skn/swarm.py`.
+
+**Designed, not yet implemented** (described above as the target architecture):
+- C-CPL post-quantum docking (ML-DSA-65 lattice signatures) — no implementation yet.
+- Betti-1 topology guard (GUDHI/ripser persistent homology) — no implementation yet.
+- ROS2 Humble bridge — no implementation yet.
+- STM32F4 firmware flashing — no implementation yet.
+- Demo scripts: only `scripts/demo_formation.py` exists today. `demo_rendezvous.py`,
+  `demo_docking.py`, `demo_mission_control.py`, and `flash_firmware.py` are planned.
+
+The performance-dashboard timings (RPi4 / Snapdragon budgets) are design targets
+for the full system, not measured benchmarks of the current code.
+
+*Vincit Omnia Veritas — the vision is nine subsystems; today five run and are
+tested, and this note says so plainly rather than letting the Quick Start fail
+silently.*

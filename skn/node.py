@@ -53,24 +53,42 @@ class EvidenceVault:
 
     def __init__(self, vault_path: Optional[str] = None):
         self._chain: List[bytes] = []
+        self._records: List[dict] = []   # preimages for real re-verification
         self._prev_hash: bytes = b'\x00' * 64
         self._vault_path = vault_path
 
     def commit(self, state_vector: np.ndarray, metadata: dict = None) -> bytes:
+        # Store the exact preimage bytes so the chain can be RE-VERIFIED later
+        # (fix 2026-07-20: the old vault kept only hashes, so verify_chain had
+        # nothing to recompute against and was vacuous).
         s_bytes = (
             state_vector.astype(np.float32).tobytes() +
             str(metadata or {}).encode() +
             str(time.time_ns()).encode()
         )
         h = hashlib.sha3_512(s_bytes + self._prev_hash).digest()
+        self._records.append({"preimage": s_bytes, "prev": self._prev_hash, "hash": h})
         self._chain.append(h)
         self._prev_hash = h
         if len(self._chain) > 256:
             self._chain = self._chain[-256:]
+            self._records = self._records[-256:]
         return h
 
     def verify_chain(self) -> bool:
-        return len(self._chain) >= 0
+        # REAL tamper-evidence (fix 2026-07-20): recompute every link and confirm
+        # (a) each hash matches sha3_512(preimage + prev) and (b) each link's prev
+        # equals the previous link's hash. Any edit to any state, metadata, hash,
+        # or ordering breaks the chain and returns False. The old version returned
+        # `len(self._chain) >= 0`, which is ALWAYS true and verified nothing.
+        expected_prev = b"\x00" * 64
+        for rec in self._records:
+            if rec["prev"] != expected_prev:
+                return False
+            if hashlib.sha3_512(rec["preimage"] + rec["prev"]).digest() != rec["hash"]:
+                return False
+            expected_prev = rec["hash"]
+        return True
 
     @property
     def chain_length(self) -> int:

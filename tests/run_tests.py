@@ -28,6 +28,24 @@ class TestEvidenceVault(unittest.TestCase):
     def test_chain_grows(self):
         for i in range(10): self.vault.commit(np.array([float(i)]*6, np.float32))
         self.assertEqual(self.vault.chain_length, 10)
+    def test_intact_chain_verifies(self):
+        for i in range(10): self.vault.commit(np.random.randn(7).astype(np.float32), {"i": i})
+        self.assertTrue(self.vault.verify_chain())
+    def test_tampered_state_fails(self):
+        # anti-vacuity: editing a committed state must break verification
+        for i in range(10): self.vault.commit(np.random.randn(7).astype(np.float32), {"i": i})
+        bad = bytearray(self.vault._records[5]["preimage"]); bad[0] ^= 0xFF
+        self.vault._records[5]["preimage"] = bytes(bad)
+        self.assertFalse(self.vault.verify_chain())
+    def test_tampered_hash_fails(self):
+        for i in range(10): self.vault.commit(np.random.randn(7).astype(np.float32), {"i": i})
+        self.vault._records[7]["hash"] = b"\x11" * 64
+        self.assertFalse(self.vault.verify_chain())
+    def test_reordered_chain_fails(self):
+        for i in range(10): self.vault.commit(np.random.randn(7).astype(np.float32), {"i": i})
+        r = self.vault._records
+        r[3], r[4] = r[4], r[3]
+        self.assertFalse(self.vault.verify_chain())
 
 class TestISRUMonitor(unittest.TestCase):
     def setUp(self):
