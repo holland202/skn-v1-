@@ -152,6 +152,22 @@ def _get_formation_targets(n: int, shape: str, scale: float) -> List[np.ndarray]
 
 def formation(n_nodes: int = 4, shape: str = "tetrahedron", scale: float = 20.0,
               n_steps: int = 300, dt: float = 0.05, slc=None, verbose: bool = True) -> dict:
+    """Formation scenario: natural gradient toward targets PLUS Riemannian gossip.
+
+    NOTE, measured 2026-08-10: this does not converge, and the reason is a
+    design conflict rather than a tuning problem. Gossip drives every node
+    toward a shared pose; the formation targets drive them apart. Measured at
+    300 steps, 4 nodes, tetrahedron scale 20:
+
+        gossip on   formation error 18.4177 m   mean pairwise spread 34.8203 m
+        gossip off  formation error  0.4669 m   mean pairwise spread 56.3102 m
+        target formation mean pairwise spread   56.5685 m
+
+    Consensus and formation are opposite objectives. formation_v3() in
+    simulation_v3.py drops gossip and uses relative-offset correctors instead,
+    which is why it reaches 0.000048 m. Use formation_v3 for convergence; this
+    function is kept because the conflict is worth being able to reproduce.
+    """
     formation_targets = _get_formation_targets(n_nodes, shape, scale)
     rng = np.random.default_rng(seed=7)
     node_ids = [f"FRM-{i:03d}" for i in range(n_nodes)]
