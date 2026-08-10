@@ -1,4 +1,12 @@
 import os, numpy as np
+
+# NOTE 2026-08-10: the three figures produced by this script are ILLUSTRATIONS.
+# They are drawn from hardcoded values and never import skn, so no number in
+# them is a measurement. The RPi 4 and Snapdragon timings, and the $100/node
+# figure, are design targets for the full nine-subsystem system; none has run
+# on hardware, because no hardware exists. Same standard as concept/:
+# illustrative, not evidence. The one measured figure in assets/ is
+# formation_convergence_dark.png, from scripts/plot_formation_convergence.py.
 os.makedirs('assets', exist_ok=True)
 
 # ===== 1. Architecture Diagram =====
@@ -66,38 +74,21 @@ for i,(l,v,d) in enumerate(metrics):
     if i < 4: ax.plot([xp+1.3,xp+1.3],[0.5,1.5],color='#30363d',linewidth=1)
 
 plt.tight_layout()
+fig.text(0.01,0.005,"ILLUSTRATION - drawn from hardcoded values, not measured. See scripts/plot_formation_convergence.py for the one figure in assets/ that is real.",color="#8b949e",fontsize=7.5,va="bottom")
 plt.savefig('assets/architecture_diagram.png',dpi=200,bbox_inches='tight',facecolor='#0d1117',edgecolor='none')
 plt.close()
 print("✓ architecture_diagram.png")
 
-# ===== 2. Formation Convergence =====
-fig, ax = plt.subplots(figsize=(12, 7))
-ax.set_facecolor('#0d1117'); fig.patch.set_facecolor('#0d1117')
-np.random.seed(42)
-t = np.linspace(0, 6, 300)
-te = 3.0*np.exp(-1.1*t) + 0.01*np.random.randn(300).cumsum()*0.02
-ce = 3.5*np.exp(-0.85*t) + 0.01*np.random.randn(300).cumsum()*0.02
-re = 2.5*np.exp(-1.4*t) + 0.01*np.random.randn(300).cumsum()*0.02
-he = 4.0*np.exp(-0.7*t) + 0.01*np.random.randn(300).cumsum()*0.02
-for arr in [te,ce,re,he]: np.convolve(arr, np.ones(5)/5, mode='same')
-ax.plot(t, te, color='#58a6ff', linewidth=2.5, label='Tetrahedron (4 nodes)', alpha=0.9)
-ax.plot(t, ce, color='#f0883e', linewidth=2.5, label='Cube (8 nodes)', alpha=0.9)
-ax.plot(t, re, color='#3fb950', linewidth=2.5, label='Ring (12 nodes)', alpha=0.9)
-ax.plot(t, he, color='#8957e5', linewidth=2.5, label='Hex lattice (19 nodes)', alpha=0.9)
-ax.axhline(y=0.05, color='#da3633', linestyle='--', linewidth=2, alpha=0.8, label='Tolerance ε = 0.05 m')
-ax.fill_between(t, 0, 0.05, alpha=0.08, color='#da3633')
-ax.set_xlabel('Time (s)', color='#8b949e', fontsize=11)
-ax.set_ylabel('Mean Position Error ‖xᵢ − x̄‖ (m)', color='#8b949e', fontsize=11)
-ax.set_title('Formation Convergence — Riemannian Gossip Consensus on SE(3)\nNatural gradient descent with adaptive Fisher-Rao metric', color='#c9d1d9', fontweight='bold', fontsize=13)
-ax.legend(loc='upper right', facecolor='#161b22', edgecolor='#30363d', fontsize=10)
-ax.set_xlim(0, 6); ax.set_ylim(-0.1, 4.0)
-ax.grid(True, alpha=0.15, color='#30363d', linestyle='-')
-ax.tick_params(colors='#8b949e')
-for spine in ax.spines.values(): spine.set_color('#30363d')
-plt.tight_layout()
-plt.savefig('assets/formation_convergence_dark.png', dpi=200, bbox_inches='tight', facecolor='#0d1117', edgecolor='none')
-plt.close()
-print("✓ formation_convergence_dark.png")
+# ===== 2. Formation Convergence: REMOVED 2026-08-10 =====
+# This block drew four hand-written decaying exponentials
+#   te=3.0*exp(-1.1t) ce=3.5*exp(-0.85t) re=2.5*exp(-1.4t) he=4.0*exp(-0.7t)
+# labelled as 4/8/12/19-node runs and saved them to
+# assets/formation_convergence_dark.png. skn was never imported, so no
+# simulation was run to make that figure, and the 8/12/19-node runs do not
+# exist in this codebase. That figure now comes from real output via
+#   PYTHONPATH=. python3 scripts/plot_formation_convergence.py
+# The block is deleted rather than commented in place because leaving it would
+# silently overwrite the real figure with the drawn one.
 
 # ===== 3. Performance Dashboard =====
 fig, axes = plt.subplots(2, 2, figsize=(14, 10))
@@ -162,6 +153,7 @@ ax4.grid(True,alpha=0.2,color='#30363d',axis='y'); ax4.tick_params(colors='#8b94
 for spine in ax4.spines.values(): spine.set_color('#30363d')
 
 plt.tight_layout(pad=2.0)
+fig.text(0.01,0.005,"ILLUSTRATION - drawn from hardcoded values, not measured. See scripts/plot_formation_convergence.py for the one figure in assets/ that is real.",color="#8b949e",fontsize=7.5,va="bottom")
 plt.savefig('assets/performance_dashboard.png',dpi=200,bbox_inches='tight',facecolor='#0d1117',edgecolor='none')
 plt.close()
 print("✓ performance_dashboard.png")
@@ -197,7 +189,8 @@ ax.legend(handles=le,loc='upper left',facecolor='#161b22',edgecolor='#30363d')
 ax.tick_params(colors='#8b949e'); ax.grid(True,alpha=0.15,color='#30363d'); ax.set_aspect('equal')
 for spine in ax.spines.values(): spine.set_color('#30363d')
 plt.tight_layout()
+fig.text(0.01,0.005,"ILLUSTRATION - drawn from hardcoded values, not measured. See scripts/plot_formation_convergence.py for the one figure in assets/ that is real.",color="#8b949e",fontsize=7.5,va="bottom")
 plt.savefig('assets/rendezvous_3d.png',dpi=200,bbox_inches='tight',facecolor='#0d1117',edgecolor='none')
 plt.close()
 print("✓ rendezvous_3d.png")
-print("\nAll 4 assets generated successfully.")
+print("\n3 illustrations generated. The measured figure is made separately by scripts/plot_formation_convergence.py")

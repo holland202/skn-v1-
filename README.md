@@ -23,22 +23,31 @@ SKN-V1 is a software-defined swarm robotics framework that runs on anything from
 |-----------|------------------------|--------------|
 | **Natural Gradient Kinematic Control** | SE(3) pose tracking on the Fisher-Rao information manifold | Replaces Euclidean gradient descent with Riemannian natural gradients for faster, geometrically-correct convergence on non-Euclidean pose spaces |
 | **Riemannian Gossip Consensus** | KL-divergence minimization with adaptive Fisher metrics | Distributed consensus where neighbor updates respect the local information geometry, not just Euclidean distance |
-| **C-CPL Cryptographic Docking** | Post-quantum manifest binding (ML-DSA-65 lattice signatures) | Cryptographically verifiable rendezvous: each docking event produces a signed, non-repudiable manifest |
+| **C-CPL Cryptographic Docking** *(not built)* | Post-quantum manifest binding (ML-DSA-65 lattice signatures) | Cryptographically verifiable rendezvous: each docking event produces a signed, non-repudiable manifest |
 | **Evidence Vault** | SHA3-512 tamper-evident hash chain with per-state attestation | Every state transition is hashed, chained, and attested; Merkle roots enable O(log n) verification |
 | **ISRU Monitor** | Gibbs free energy filtering for resource extraction | Bayesian update of P(ore \| sensor data) using thermodynamic priors; threshold at ΔG < −50 kJ/mol |
-| **Betti-1 Topology Guard** | Real-time persistent homology (GUDHI + ripser backend) | Computes β₁ in real time to detect swarm fragmentation before it becomes catastrophic |
-| **ROS2 Bridge** | Standard ROS2 Humble topic/service API | Exposes `/swarm/pose_array`, `/skn/dock_request`, and diagnostic topics with QoS `reliable, depth 10` |
-| **Hardware Abstraction** | SE(3) → SE(2) projection layer | Runs the same control stack on aerial (full SE(3)) and ground (SE(2)) robots without code changes |
-| **Mission Control Dashboard** | WebSocket-fed HTML5 canvas renderer | Real-time visualization of swarm state, topology barcodes, and crypto attestation chain |
+| **Betti-1 Topology Guard** *(not built)* | Real-time persistent homology (GUDHI + ripser backend) | Computes β₁ in real time to detect swarm fragmentation before it becomes catastrophic |
+| **ROS2 Bridge** *(not built)* | Standard ROS2 Humble topic/service API | Exposes `/swarm/pose_array`, `/skn/dock_request`, and diagnostic topics with QoS `reliable, depth 10` |
+| **Propulsion Allocator** | Pseudoinverse allocation over 6 HET thrusters + 3 CMG axes | Maps a 6-DOF velocity command to actuator commands, with clipping and CMG desaturation by null-space projection |
+| **Mission Control Dashboard** *(not built)* | WebSocket-fed HTML5 canvas renderer | Real-time visualization of swarm state, topology barcodes, and crypto attestation chain |
 
 The unifying principle: **every subsystem treats uncertainty as geometry**. Pose uncertainty lives on the Fisher-Rao manifold; consensus disagreement is measured in KL divergence; cryptographic trust is a lattice-based distance in module space.
 
-**Status, up front, not buried at the bottom:** five of the nine subsystems above are
-implemented and tested today — Natural Gradient Kinematic Control, Riemannian Gossip
-Consensus, Evidence Vault, ISRU Monitor, and Hardware Abstraction. Four are designed
-but **not yet implemented**: C-CPL Cryptographic Docking, Betti-1 Topology Guard,
-the ROS2 Bridge, and the Mission Control Dashboard. The table above describes the
-target architecture; the Quick Start below runs the five that exist.
+**Status, up front, not buried at the bottom:** five of the nine subsystems above
+are implemented and tested today — Natural Gradient Kinematic Control, Riemannian
+Gossip Consensus, Evidence Vault, ISRU Monitor, and the Propulsion Allocator. Four
+are designed but **not yet implemented**: C-CPL Cryptographic Docking, Betti-1
+Topology Guard, the ROS2 Bridge, and the Mission Control Dashboard.
+
+Correction, 2026-08-10: this paragraph previously listed Hardware Abstraction as
+implemented and omitted the Propulsion Allocator. That was wrong in both
+directions — there is no SE(2) code anywhere in skn/, and the allocator is real
+and tested. The hardware-abstraction specification has moved to DESIGN.md. The
+two mission-control scripts in the repo root render matplotlib animation frames;
+there is no WebSocket server and no live dashboard.
+
+The table above describes the target architecture; the Quick Start below runs the
+five that exist.
 
 ---
 
@@ -57,23 +66,12 @@ python tests/run_tests.py
 
 # Run demos
 python scripts/demo_formation.py      # Tetrahedron / cube / ring convergence
-python scripts/demo_rendezvous.py     # 3D SE(3) natural gradient descent
-python scripts/demo_docking.py        # C-CPL cryptographic handshake
-python scripts/demo_mission_control.py # Web dashboard on http://localhost:8080
 ```
 
-### Hardware Demo (RPi 4 or Snapdragon)
-
-```bash
-# Flash firmware to STM32F4 (UART @ 921600 baud)
-python scripts/flash_firmware.py --port /dev/ttyUSB0 --target rpi4
-
-# Launch ROS2 bridge
-ros2 launch skn_v1 swarm_demo.launch.py
-
-# View live topology + pose data
-python viz/mission_control.py --ws-port 8765
-```
+Only demo_formation.py exists today. The rendezvous, docking and ISRU
+scenarios exist as library functions (skn.rendezvous, skn.docking_chain,
+skn.isru_operation), not as scripts. There is no hardware in this repo:
+no firmware, no serial code, no Pi. See Implementation Status below.
 
 ---
 
@@ -140,7 +138,11 @@ Twelve nodes initialized uniformly on a sphere of radius 5 m converge to a tetra
 
 ### 1. Natural Gradient on SE(3)
 
-The pose of node i at time t is gᵢ(t) ∈ SE(3), represented as a homogeneous matrix. The Fisher-Rao metric on the Lie algebra 𝔰𝔢(3) is:
+The pose of node i at time t is a 6-vector: 3 translation, 3 rotation,
+updated by pose += step * dt. This is a flat R^6 update -- there is no
+exponential map and no retraction, so rotation components are added
+componentwise rather than composed on SO(3). The Fisher-Rao formulation on
+the Lie algebra se(3) is:
 
 ```
 G(θ) = 𝔼[∇log p(x;θ) ∇log p(x;θ)ᵀ]
@@ -152,7 +154,31 @@ The natural gradient update is:
 θ_{t+1} = θ_t − η G(θ_t)⁻¹ ∇L(θ_t)
 ```
 
-where η ∈ [0.01, 0.1] is the adaptive step size. On SE(3), G(θ) is block-diagonal with 3×3 rotational and translational blocks. We compute G(θ) via Monte Carlo sampling of the sensor model (default: 100 samples), then invert via Cholesky decomposition. The Bures metric variant (used in v1.7+) replaces G(θ) with the Bures-Wasserstein distance on the Bloch ball, giving better conditioning for highly anisotropic uncertainties.
+IMPLEMENTATION STATUS, measured on device 2026-08-10 (S25 Ultra, Python 3.14).
+The formulation above is the target. What the code does today:
+update_fisher_metric sets G = clip(1/(d**1.8 + 1e-4), 0.01, 10) * 1.05 * I,
+inverted with numpy pinv. There is no Monte Carlo sampling, no Cholesky
+decomposition, no block-diagonal structure, and no Bures variant anywhere in
+the control path. Because G is a scalar multiple of the identity,
+G^-1 @ error equals error / (c * 1.05) -- the same direction as Euclidean
+gradient descent, with a different step size. Measured over 300 steps x 4 nodes:
+
+```
+max |off-diagonal|             = 0.000000000000
+max (diag_max - diag_min)      = 0.000000000000
+undamped steps (d >= 0.5)      = 1061   min cosine = 1.000000000000
+damped steps   (d <  0.5)      = 139    min cosine = 0.968693129576
+anisotropic-injection control  = 0.925014  (probe can detect anisotropy)
+```
+
+The control run confirms the probe is not blind: injecting a genuinely
+anisotropic metric drops the cosine to 0.925014, so the 1.000000000000 above
+is a measurement, not an artifact. The only departure from Euclidean descent
+is the 139 damped steps, and those come from a hardcoded step[3:] *= 0.6, not
+from the metric. The Riemannian scaffolding is wired and working, but it is
+not yet carrying anisotropic information, so it cannot presently be the reason
+the controller converges. Making sensor_uncertainty per-axis is a one-line
+change and is the open experiment.
 
 ### 2. Riemannian Gossip Consensus
 
@@ -183,164 +209,45 @@ The manifest and signature are appended to the Evidence Vault hash chain. Verifi
 
 ---
 
-## Hardware Demo
+## Hardware, crypto hardening and ROS2
 
-### BOM (Bill of Materials) — $100/node
+These three subsystems are designed but not built. The full specification --
+BOM, SE(3) to SE(2) projection, calibration procedure, ML-DSA-65 migration
+path, and the ROS2 topic/service API -- has moved to DESIGN.md so that this
+file describes only what runs.
 
-| Component | Model | Cost | Purpose |
-|-----------|-------|------|---------|
-| Compute | Raspberry Pi 4 (4 GB) | $55 | Main controller, ROS2 node |
-| MCU | STM32F407VGT6 | $12 | Real-time PWM, encoder reading |
-| IMU | MPU-9250 | $8 | 9-DOF pose estimation |
-| Radio | nRF24L01+ | $3 | 2.4 GHz inter-node mesh |
-| Motor driver | DRV8833 | $4 | Dual H-bridge, 1.2 A/channel |
-| Chassis | 3D-printed | $8 | Custom frame, ~200 g |
-| Battery | 2S LiPo 1000 mAh | $10 | ~30 min runtime |
-
-### SE(3) → SE(2) Projection
-
-For ground robots, the full SE(3) pose is projected to SE(2) by fixing z = 0 and pitch = roll = 0:
-
-```python
-# In skn/hardware_abstraction.py
-def project_se3_to_se2(g_se3: np.ndarray) -> np.ndarray:
-    """Project homogeneous SE(3) matrix to SE(2).
-
-    g_se3: 4x4 homogeneous matrix [R | t; 0 | 1]
-    Returns: 3x3 SE(2) matrix [cos θ, -sin θ, x; sin θ, cos θ, y; 0, 0, 1]
-    """
-    x, y = g_se3[0, 3], g_se3[1, 3]
-    theta = np.arctan2(g_se3[1, 0], g_se3[0, 0])
-    return np.array([
-        [np.cos(theta), -np.sin(theta), x],
-        [np.sin(theta),  np.cos(theta), y],
-        [0, 0, 1]
-    ])
-```
-
-This projection is **lossless for planar motion** and allows the same control stack to run on aerial (full SE(3)) and ground (SE(2)) platforms without modification.
-
-### Calibration
-
-```bash
-# IMU calibration (run once per node)
-python scripts/calibrate_imu.py --duration 60 --output imu_cal.json
-
-# Motor PID tuning
-python scripts/tune_pid.py --kp 1.2 --ki 0.05 --kd 0.3 --target_vel 0.5
-
-# Radio mesh test
-python scripts/test_mesh.py --channel 76 --power 0dBm --nodes 4
-```
-
----
-
-## Crypto Hardening
-
-### Current State (v1.7.1)
-
-| Primitive | Standard | Status | Performance (Snapdragon) |
-|-----------|----------|--------|--------------------------|
-| Manifest signing | ML-DSA-65 (FIPS 204) | ✅ Implemented | 5.1 ms/sign |
-| Hash chain | SHA3-512 (FIPS 202) | ✅ Implemented | 0.1 ms/hash |
-| Key exchange | Kyber-768 placeholder | 🟡 Stub | N/A |
-| Zero-knowledge proof | Placeholder | 🔴 Not started | N/A |
-
-### Migration Path
-
-| Version | Milestone | ETA |
-|---------|-----------|-----|
-| v1.8.0 | Replace Kyber placeholder with ML-KEM-768 | Q3 2026 |
-| v1.9.0 | Add zk-SNARK for private consensus verification | Q4 2026 |
-| v2.0.0 | Full PQ hardening audit + NIST compliance docs | Q1 2027 |
-
----
-
-## ROS2 Bridge
-
-### Topics
-
-| Topic | Type | QoS | Publisher | Description |
-|-------|------|-----|-----------|-------------|
-| `/swarm/pose_array` | `geometry_msgs/PoseArray` | reliable, depth 10 | SKN node | All node poses |
-| `/skn/health` | `diagnostic_msgs/DiagnosticArray` | best effort | SKN node | β₁, battery, signal |
-| `/skn/vault/head` | `std_msgs/String` | reliable, depth 1 | Evidence Vault | Current Merkle root |
-
-### Services
-
-| Service | Type | Description |
-|---------|------|-------------|
-| `/skn/dock_request` | `skn_v1/DockRequest` | Initiate C-CPL handshake with target node |
-| `/skn/topo/query` | `skn_v1/TopologyQuery` | Request current β₁ barcode |
-| `/skn/param/set` | `skn_v1/SetParam` | Runtime parameter update (η, gossip rate, etc.) |
-
-### Launch
-
-```bash
-# Single node (development)
-ros2 run skn_v1 skn_ros2_node --ros-args -p node_id:=0 -p n_nodes:=4
-
-# Full swarm (4 nodes, simulation)
-ros2 launch skn_v1 swarm_demo.launch.py n_nodes:=4 formation:=tetrahedron
-
-# Hardware swarm (8 nodes, RPi 4)
-ros2 launch skn_v1 swarm_hw.launch.py n_nodes:=8 target:=hw_bom_v1
-```
+See DESIGN.md.
 
 ---
 
 ## Repository Structure
 
 ```
-skn-v1/
-├── skn/                          # Core package
-│   ├── __init__.py
-│   ├── node.py                   # SKNV1_SovereignNode class
-│   ├── natural_gradient.py      # Fisher-Rao / Bures gradient
-│   ├── gossip.py                 # Riemannian gossip consensus
-│   ├── docking.py                # C-CPL cryptographic docking
-│   ├── vault.py                  # Evidence Vault hash chain
-│   ├── topology.py               # Betti-1 persistent homology
-│   ├── isru.py                   # Gibbs free energy monitor
-│   ├── hardware_abstraction.py  # SE(3)/SE(2) projection
-│   └── ros2_bridge.py           # ROS2 node wrapper
-├── scripts/                      # Executable demos
-│   ├── demo_formation.py
-│   ├── demo_rendezvous.py
-│   ├── demo_docking.py
-│   ├── demo_mission_control.py
-│   ├── calibrate_imu.py
-│   ├── tune_pid.py
-│   └── test_mesh.py
-├── tests/                        # Test suite
-│   ├── test_natural_gradient.py
-│   ├── test_gossip.py
-│   ├── test_docking.py
-│   ├── test_vault.py
-│   ├── test_topology.py
-│   └── run_tests.py
-├── viz/                          # Visualization
-│   ├── mission_control.py        # WebSocket server
-│   └── dashboard.html            # HTML5 client
-├── docs/                         # Documentation
-│   ├── ARCHITECTURE.md           # System design (this diagram)
-│   ├── HARDWARE_DEMO_ARCHITECTURE.md
-│   ├── CRYPTO_HARDENING_SPEC.md
-│   └── SKN_V1_BUILD_ROADMAP.md
-├── assets/                       # Images for README
-│   ├── architecture_diagram.png
-│   ├── formation_convergence_dark.png
-│   ├── performance_dashboard.png
-│   └── rendezvous_3d.png
-├── launch/                       # ROS2 launch files
-│   ├── swarm_demo.launch.py
-│   └── swarm_hw.launch.py
-├── setup.py                      # Legacy setuptools
-├── pyproject.toml                # Modern packaging (PEP 621)
-├── requirements.txt              # Pinned dependencies
-├── LICENSE                       # MIT
-└── README.md                     # This file
+skn-v1-/
+  skn/                     core package
+    __init__.py
+    node.py                SKNV1_SovereignNode, PropulsionAllocator,
+                           EvidenceVault, ISRUMonitor
+    swarm.py               SwarmGossipProtocol
+    simulation.py          rendezvous, formation, docking_chain, isru_operation
+    simulation_v3.py       formation_v3
+    geometric_policy.py    not imported by __init__; unused
+  scripts/
+    demo_formation.py
+  tests/
+    run_tests.py           15 tests
+  viz/skn_mission_control.html
+  assets/  concept/  frames/    images
+  build_skn.py             generator that emits the package
+  generate_assets.py  write_readme.py
+  demo_mission_control.py  skn_cinematic.py  skn_mission_control.py
+  skn_orbital_demo.py  skn_orbital_tui.py  sovereign_futuristic_demo.py
+  setup.py  pyproject.toml  requirements.txt  LICENSE
 ```
+
+Generated from git ls-tree. Vault, ISRU, docking and propulsion are classes
+inside node.py, not separate modules. Betti-1 topology is in swarm.py. There
+is no docs/, launch/, config/ or firmware/ directory, and no ros2_bridge.py.
 
 ---
 
