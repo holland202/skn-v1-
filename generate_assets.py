@@ -88,7 +88,7 @@ ax.axhline(y=0.05, color='#da3633', linestyle='--', linewidth=2, alpha=0.8, labe
 ax.fill_between(t, 0, 0.05, alpha=0.08, color='#da3633')
 ax.set_xlabel('Time (s)', color='#8b949e', fontsize=11)
 ax.set_ylabel('Mean Position Error ‖xᵢ − x̄‖ (m)', color='#8b949e', fontsize=11)
-ax.set_title('Formation Convergence — Riemannian Gossip Consensus on SE(3)\\nNatural gradient descent with adaptive Fisher-Rao metric', color='#c9d1d9', fontweight='bold', fontsize=13)
+ax.set_title('Formation Convergence — Riemannian Gossip Consensus on SE(3)\nNatural gradient descent with adaptive Fisher-Rao metric', color='#c9d1d9', fontweight='bold', fontsize=13)
 ax.legend(loc='upper right', facecolor='#161b22', edgecolor='#30363d', fontsize=10)
 ax.set_xlim(0, 6); ax.set_ylim(-0.1, 4.0)
 ax.grid(True, alpha=0.15, color='#30363d', linestyle='-')
@@ -133,7 +133,7 @@ ax2.grid(True, alpha=0.2, color='#30363d'); ax2.tick_params(colors='#8b949e'); a
 for spine in ax2.spines.values(): spine.set_color('#30363d')
 
 ax3 = axes[1,0]; ax3.set_facecolor('#0d1117')
-cats=['Control\\nLoop','Gossip\\nUpdate','Crypto\\nHandshake','Topo\\nCompute','Vault\\nAttest']
+cats=['Control\nLoop','Gossip\nUpdate','Crypto\nHandshake','Topo\nCompute','Vault\nAttest']
 rpi=[18.5,12.3,8.7,15.2,3.1]; snap=[2.1,1.8,2.3,4.5,0.4]; x=np.arange(len(cats)); w=0.35
 b1=ax3.bar(x-w/2,rpi,w,label='RPi 4 (1.5 GHz)',color='#f0883e',alpha=0.8)
 b2=ax3.bar(x+w/2,snap,w,label='Snapdragon 8 Gen 3',color='#58a6ff',alpha=0.8)
@@ -150,7 +150,7 @@ for bar in b2:
     h=bar.get_height(); ax3.text(bar.get_x()+bar.get_width()/2.,h+0.3,f'{h:.1f}',ha='center',va='bottom',color='#58a6ff',fontsize=8)
 
 ax4 = axes[1,1]; ax4.set_facecolor('#0d1117')
-ops=['ML-DSA-65\\nSign','ML-DSA-65\\nVerify','SHA3-512\\nHash','Merkle\\nRoot','Lattice\\nCommit']
+ops=['ML-DSA-65\nSign','ML-DSA-65\nVerify','SHA3-512\nHash','Merkle\nRoot','Lattice\nCommit']
 rpi_c=[45.2,12.8,1.2,3.5,8.9]; snap_c=[5.1,1.4,0.1,0.4,1.0]; x=np.arange(len(ops))
 b3=ax4.bar(x-w/2,rpi_c,w,label='RPi 4',color='#f0883e',alpha=0.8)
 b4=ax4.bar(x+w/2,snap_c,w,label='Snapdragon',color='#58a6ff',alpha=0.8)
@@ -187,7 +187,7 @@ for i in range(4):
         ax.plot([tetra[i,0],tetra[j,0]],[tetra[i,1],tetra[j,1]],color='#8957e5',linewidth=1,alpha=0.4,linestyle='--')
 ax.scatter([0],[0],color='#ff6b6b',s=300,marker='*',edgecolors='white',linewidths=1,zorder=10,label='Rendezvous point')
 ax.set_xlabel('X (m)',color='#8b949e',fontsize=10); ax.set_ylabel('Y (m)',color='#8b949e',fontsize=10)
-ax.set_title('3D Rendezvous with Tetrahedron Formation\\nSE(3) Natural Gradient Descent on Fisher-Rao Manifold (XY projection)',color='#c9d1d9',fontweight='bold',fontsize=12,pad=20)
+ax.set_title('3D Rendezvous with Tetrahedron Formation\nSE(3) Natural Gradient Descent on Fisher-Rao Manifold (XY projection)',color='#c9d1d9',fontweight='bold',fontsize=12,pad=20)
 from matplotlib.lines import Line2D
 le=[Line2D([0],[0],marker='o',color='w',markerfacecolor='#58a6ff',markersize=8,label='Initial position'),
     Line2D([0],[0],marker='^',color='w',markerfacecolor='#3fb950',markersize=8,label='Final position'),
@@ -200,4 +200,4 @@ plt.tight_layout()
 plt.savefig('assets/rendezvous_3d.png',dpi=200,bbox_inches='tight',facecolor='#0d1117',edgecolor='none')
 plt.close()
 print("✓ rendezvous_3d.png")
-print("\\nAll 4 assets generated successfully.")
+print("\nAll 4 assets generated successfully.")
