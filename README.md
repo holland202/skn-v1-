@@ -33,6 +33,13 @@ SKN-V1 is a software-defined swarm robotics framework that runs on anything from
 
 The unifying principle: **every subsystem treats uncertainty as geometry**. Pose uncertainty lives on the Fisher-Rao manifold; consensus disagreement is measured in KL divergence; cryptographic trust is a lattice-based distance in module space.
 
+**Status, up front, not buried at the bottom:** five of the nine subsystems above are
+implemented and tested today — Natural Gradient Kinematic Control, Riemannian Gossip
+Consensus, Evidence Vault, ISRU Monitor, and Hardware Abstraction. Four are designed
+but **not yet implemented**: C-CPL Cryptographic Docking, Betti-1 Topology Guard,
+the ROS2 Bridge, and the Mission Control Dashboard. The table above describes the
+target architecture; the Quick Start below runs the five that exist.
+
 ---
 
 ## Quick Start
@@ -45,7 +52,7 @@ cd skn-v1-
 # Install (editable, for development)
 pip install -e .
 
-# Run tests (11 tests, all passing)
+# Run tests (15 tests, all passing)
 python tests/run_tests.py
 
 # Run demos
@@ -416,13 +423,13 @@ architecture narrative above describe the full **target** system.
   tested 2026-07-20.*
 - Swarm gossip consensus — present in `skn/swarm.py`.
 
-**Designed, not yet implemented** (described above as the target architecture):
-- C-CPL post-quantum docking (ML-DSA-65 lattice signatures) — no implementation yet.
-- Betti-1 topology guard (GUDHI/ripser persistent homology) — no implementation yet.
-- ROS2 Humble bridge — no implementation yet.
-- STM32F4 firmware flashing — no implementation yet.
-- Demo scripts: only `scripts/demo_formation.py` exists today. `demo_rendezvous.py`,
-  `demo_docking.py`, `demo_mission_control.py`, and `flash_firmware.py` are planned.
+**Full detail on what's not implemented yet** (status is stated up front now, see
+"What This Is" above — this section keeps the specifics): C-CPL post-quantum docking
+needs ML-DSA-65 lattice signatures, not built. Betti-1 topology guard needs a
+GUDHI/ripser backend, not built. ROS2 Humble bridge, not built. STM32F4 firmware
+flashing, not built. Demo scripts: only `scripts/demo_formation.py` exists today;
+`demo_rendezvous.py`, `demo_docking.py`, `demo_mission_control.py`, and
+`flash_firmware.py` are planned.
 
 The performance-dashboard timings (RPi4 / Snapdragon budgets) are design targets
 for the full system, not measured benchmarks of the current code.
