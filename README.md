@@ -83,7 +83,19 @@ no firmware, no serial code, no Pi. See Implementation Status below.
   <img src="assets/formation_convergence_dark.png" alt="Formation Convergence" width="800"/>
 </p>
 
-All formations converge to ε = 0.05 m mean position error. The ring topology converges fastest (λ = 1.40 s⁻¹) due to its high algebraic connectivity; the hexagonal lattice is slowest (λ = 0.70 s⁻¹) because of its larger diameter. **This is expected and correct** — convergence rate is governed by the Fiedler value of the communication graph, not the control law.
+The figure above shows the **ablation**, not the topologies: `formation_v3` (gradient plus two decaying-gain correctors), the natural gradient alone, and `formation` (gradient plus gossip). Every point is returned by `skn`; reproduce with `scripts/plot_formation_convergence.py`.
+
+Formation convergence by topology, measured on a Snapdragon 8 Elite under Termux (300 steps, dt = 0.05, `scripts/demo_formation.py`):
+
+| shape | nodes | start | final |
+|---|---|---|---|
+| tetrahedron | 4 | 18.6167 m | 4.847818e-05 m |
+| cube | 8 | 16.9145 m | 2.391953e-05 m |
+| ring | 6 | 17.2736 m | 3.048524e-05 m |
+
+**Correction, kept.** This paragraph previously claimed all formations converge to ε = 0.05 m, that the ring converges fastest (λ = 1.40 s⁻¹) and a hexagonal lattice slowest (λ = 0.70 s⁻¹), and that the spread is governed by the Fiedler value of the communication graph. None of it was measured. The 0.05 is the `dt` argument in the same demo call. The two λ constants are the coefficients of the hand-drawn exponentials in the superseded synthetic figure (2.5·exp(−1.4t), 4.0·exp(−0.7t)); no hexagonal-lattice run exists in this repo. The explanation was written to fit the artwork, not the code.
+
+**Open.** Whether convergence rate varies with topology here is unmeasured. Each node runs a per-node scalar-gain update, so there is reason to expect it does not — but no registered experiment has tested it.
 
 ### 3D Rendezvous
 
