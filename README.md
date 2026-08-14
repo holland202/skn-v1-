@@ -21,7 +21,7 @@ SKN-V1 is a software-defined swarm robotics framework that runs on anything from
 
 | Subsystem | Mathematical Foundation | What It Does |
 |-----------|------------------------|--------------|
-| **Natural Gradient Kinematic Control** | SE(3) pose tracking on the Fisher-Rao information manifold | Replaces Euclidean gradient descent with Riemannian natural gradients for faster, geometrically-correct convergence on non-Euclidean pose spaces |
+| **Natural Gradient Kinematic Control** | SE(3) pose tracking on the Fisher-Rao information manifold | Intended to replace Euclidean gradient descent with Riemannian natural gradients. MEASURED: the metric is currently a scalar multiple of the identity, so the step is Euclidean in direction. See Natural Gradient on SE(3) below |
 | **Riemannian Gossip Consensus** | KL-divergence minimization with adaptive Fisher metrics | Distributed consensus where neighbor updates respect the local information geometry, not just Euclidean distance |
 | **C-CPL Cryptographic Docking** *(not built)* | Post-quantum manifest binding (ML-DSA-65 lattice signatures) | Cryptographically verifiable rendezvous: each docking event produces a signed, non-repudiable manifest |
 | **Evidence Vault** | SHA3-512 tamper-evident hash chain with per-state attestation | Every state transition is hashed, chained, and attested; Merkle roots enable O(log n) verification |
@@ -103,7 +103,7 @@ Formation convergence by topology, measured on a Snapdragon 8 Elite under Termux
   <img src="assets/rendezvous_3d.png" alt="3D Rendezvous" width="700"/>
 </p>
 
-Twelve nodes initialized uniformly on a sphere of radius 5 m converge to a tetrahedron formation centered at the origin. Trajectories are natural gradient flows on SE(3); the Fisher-Rao metric adapts step size locally, preventing the overshoot that plagues Euclidean gradient descent on rotation groups.
+ILLUSTRATION, not simulation output. This figure is drawn from hardcoded values (12 points seeded on a sphere, exponential decay plus noise); no 12-node rendezvous run exists in this repo. The real formation runs are 4, 6 and 8 nodes and are tabulated above.
 
 ### Performance Dashboard
 
@@ -139,9 +139,9 @@ Twelve nodes initialized uniformly on a sphere of radius 5 m converge to a tetra
 | Control latency | < 20 ms | RPi 4 @ 1.5 GHz | 50 Hz loop, single-core |
 | Control latency | < 2.1 ms | Snapdragon 8 Gen 3 | Same Python code |
 | Consensus convergence | O(n log n) | n ≤ 64 nodes | Verified up to 64 |
-| Crypto handshake (ML-DSA-65) | ≤ 2.3 ms | Snapdragon | RPi 4: 8.7 ms |
-| Topology compute (β₁) | 4.5 ms | Snapdragon | GUDHI + ripser backend |
-| Vault attestation | 0.4 ms | Snapdragon | SHA3-512 + Merkle root |
+| Crypto handshake (ML-DSA-65) | NOT MEASURED | — | Subsystem not built; the figures previously here were hardcoded literals |
+| Topology compute (β₁) | NOT MEASURED | — | Subsystem not built; same |
+| Vault attestation | NOT MEASURED | — | Vault exists in node.py; no timing run has been done |
 | BOM cost | ~$100/node | RPi 4 + STM32F4 + sensors | See `HARDWARE_DEMO_ARCHITECTURE.md` |
 
 ---
@@ -189,8 +189,25 @@ is a measurement, not an artifact. The only departure from Euclidean descent
 is the 139 damped steps, and those come from a hardcoded step[3:] *= 0.6, not
 from the metric. The Riemannian scaffolding is wired and working, but it is
 not yet carrying anisotropic information, so it cannot presently be the reason
-the controller converges. Making sensor_uncertainty per-axis is a one-line
-change and is the open experiment.
+the controller converges. A previous version of this section called per-axis sensor_uncertainty
+"a one-line change and the open experiment." That was tested and REFUTED.
+With eta tuned independently per arm over a 14-value grid, 400 steps, 5 seeds:
+isotropic (current) 0.002933 normalized error; anisotropic-correct 0.510685;
+anisotropic-deliberately-wrong 0.522692. The correct metric was no better
+than the wrong one. Per-axis relative error under the isotropic metric is
+identical across all six axes (spread 7.916e-09), so the system is already
+perfectly conditioned in relative terms and a preconditioner has nothing to
+fix. Cause: pose += grad*dt with diagonal G evolves each axis independently.
+Preconditioning pays only when axes are coupled or share a binding
+constraint, and this controller has neither -- PropulsionAllocator.allocate
+computes clipped actuator commands, but the result is never fed back into
+pose, so saturation never binds.
+
+THE OPEN EXPERIMENT, restated: feed allocate()'s clipped output back into the
+pose update so saturation couples the axes, then ask whether an anisotropic
+metric beats isotropic at matched budget and whether a wrong metric loses.
+That is a design change to node.step, not a metric change, and it is
+unrun.
 
 ### 2. Riemannian Gossip Consensus
 
