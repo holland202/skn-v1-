@@ -71,10 +71,17 @@ python scripts/test_mesh.py --channel 76 --power 0dBm --nodes 4
 
 ### Current State (v1.7.1)
 
-| Primitive | Standard | Status | Performance (Snapdragon) |
-|-----------|----------|--------|--------------------------|
-| Manifest signing | ML-DSA-65 (FIPS 204) | ✅ Implemented | 5.1 ms/sign |
-| Hash chain | SHA3-512 (FIPS 202) | ✅ Implemented | 0.1 ms/hash |
+**Correction, kept (2026-08-23).** This table previously marked manifest
+signing and the hash chain "Implemented" with per-operation Snapdragon
+timings. That contradicted this file's own header, which states that none of
+this is built and that no part of it has been measured on hardware. The
+timings were never measured. Withdrawn: "ML-DSA-65, Implemented, 5.1 ms/sign"
+and "SHA3-512, Implemented, 0.1 ms/hash".
+
+| Primitive | Standard | Status | Performance |
+|-----------|----------|--------|-------------|
+| Manifest signing | ML-DSA-65 (FIPS 204) | 🔴 Not built | NOT MEASURED. The code computes an unauthenticated SHA-256 digest of two public values instead; see README section 3 |
+| Hash chain | SHA3-512 (FIPS 202) | 🟢 Built, unbenchmarked | NOT MEASURED. The chain exists in `skn/node.py` and its verify path recomputes each link; no timing run exists |
 | Key exchange | Kyber-768 placeholder | 🟡 Stub | N/A |
 | Zero-knowledge proof | Placeholder | 🔴 Not started | N/A |
 

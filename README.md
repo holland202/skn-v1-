@@ -225,16 +225,42 @@ log pᵢ^{(k+1)} = (1 − α) log pᵢ^{(k)} + α · avg_{j∈N(i)} log pⱼ^{(k
 
 with α = 0.08 (gossip rate). Convergence is guaranteed for connected graphs with algebraic connectivity λ₂ > 0, with rate O(n log n) for uniform gossip.
 
-### 3. C-CPL Cryptographic Docking
+### 3. C-CPL Docking — manifest digest, NOT a signature
 
-The Cryptographic Consensus Protocol Layer (C-CPL) binds each docking event to a lattice-based manifest:
+**Status: partially implemented, and weaker than its name.** The docking flow
+runs. The cryptography does not exist.
+
+What the design calls for:
 
 ```
 M = (timestamp, node_ids, pose_hash, nonce)
-σ = ML-DSA-65.Sign(sk, SHA3-512(M))
+sigma = ML-DSA-65.Sign(sk, SHA3-512(M))        <- NOT IMPLEMENTED
 ```
 
-The manifest and signature are appended to the Evidence Vault hash chain. Verification is O(1) per event; the full chain integrity check is O(n) in chain length but parallelizable via Merkle tree.
+What `skn/node.py` actually computes:
+
+```
+H_m      = SHA3-256(manifest_bytes)
+sig_stub = SHA256(H_m || node_id)              <- both inputs public
+```
+
+`sig_stub` is a digest of two public values. It is not a signature: no private
+key, no signing operation, and nothing verifies it. Any party able to compute
+SHA-256 can produce an identical value for the same manifest and node. It
+provides no authentication, no non-repudiation, and no post-quantum property.
+
+The docking path is nonetheless live: on `align_quality > 0.5` it sets
+`c_cpl_locked` and commits a `CCPL_DOCK` event to the Evidence Vault, which
+records it accurately as an event that happened. The vault is doing its job;
+what it attests to is a lock that no cryptography defended.
+
+The ML-DSA-65 migration path is specified in DESIGN.md. Until it is
+implemented, treat every docking attestation in this repository as
+unauthenticated.
+
+The Evidence Vault chain itself is real: SHA3-512, with a verify path that
+recomputes each link. Verification is O(1) per event and O(n) for the full
+chain. It is tamper-evident, not tamper-proof — see Honest Limitations.
 
 ---
 
@@ -297,6 +323,29 @@ Core functionality requires only `numpy` and `scipy`. All other dependencies are
 ---
 
 ## Honest Limitations
+
+**Correction, kept (2026-08-23).** Six numbered limitations previously stood
+here. Four described the operational behaviour of subsystems that do not exist
+in this repository, in the voice of a maintainer reporting field experience.
+They are named below with what the code actually contains, because a specific
+caveat about a nonexistent system is more misleading than no caveat at all.
+
+Previously claimed, and withdrawn:
+
+- *"ML-DSA-65 is a wrapper around liboqs. The cryptographic primitives are
+  correct, but the integration is not yet side-channel resistant."* There is
+  no liboqs dependency, no ML-DSA-65, and no lattice cryptography in this
+  repository. See item 2 below for what the docking path computes.
+- *"Persistent homology is O(n squared) in point cloud size. For n > 64 nodes,
+  Betti-1 computation exceeds the 20 ms budget on RPi 4. The Snapdragon
+  handles n = 128."* No persistent-homology code exists here. The Betti-1
+  guard is designed, not built. Those figures were not measured.
+- *"ROS2 bridge is single-threaded. The executor runs in the same process as
+  the control loop."* The ROS2 bridge is not built. There is no executor.
+- *"Betti-1 Guard uses ripser, not GUDHI, for speed."* Neither library is a
+  dependency of this repository.
+
+What remains, and is accurate:
 
 1. **No real hardware tests yet.** All metrics above are simulation or single-node bench. Multi-node RF mesh validation is scheduled for v1.8.0.
 
