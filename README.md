@@ -23,7 +23,7 @@ SKN-V1 is a software-defined swarm robotics framework that runs on anything from
 |-----------|------------------------|--------------|
 | **Natural Gradient Kinematic Control** | SE(3) pose tracking on the Fisher-Rao information manifold | Intended to replace Euclidean gradient descent with Riemannian natural gradients. MEASURED: the metric is currently a scalar multiple of the identity, so the step is Euclidean in direction. See Natural Gradient on SE(3) below |
 | **Riemannian Gossip Consensus** | KL-divergence minimization with adaptive Fisher metrics | Distributed consensus where neighbor updates respect the local information geometry, not just Euclidean distance |
-| **C-CPL Cryptographic Docking** *(not built)* | Post-quantum manifest binding (ML-DSA-65 lattice signatures) | Cryptographically verifiable rendezvous: each docking event produces a signed, non-repudiable manifest |
+| **C-CPL Docking** *(built, unauthenticated)* | Manifest digest, NOT a signature: SHA256(SHA3-256(manifest) || node_id), both inputs public | Docking executes and is attested in the vault, but nothing authenticates it. ML-DSA-65 is the design target, not the code. See section 3 |
 | **Evidence Vault** | SHA3-512 tamper-evident hash chain with per-state attestation | Every state transition is hashed, chained, and attested; Merkle roots enable O(log n) verification |
 | **ISRU Monitor** | Gibbs free energy filtering for resource extraction | Bayesian update of P(ore \| sensor data) using thermodynamic priors; threshold at ΔG < −50 kJ/mol |
 | **Betti-1 Topology Guard** *(not built)* | Real-time persistent homology (GUDHI + ripser backend) | Computes β₁ in real time to detect swarm fragmentation before it becomes catastrophic |
@@ -35,9 +35,12 @@ The unifying principle: **every subsystem treats uncertainty as geometry**. Pose
 
 **Status, up front, not buried at the bottom:** five of the nine subsystems above
 are implemented and tested today — Natural Gradient Kinematic Control, Riemannian
-Gossip Consensus, Evidence Vault, ISRU Monitor, and the Propulsion Allocator. Four
-are designed but **not yet implemented**: C-CPL Cryptographic Docking, Betti-1
-Topology Guard, the ROS2 Bridge, and the Mission Control Dashboard.
+Gossip Consensus, Evidence Vault, ISRU Monitor, and the Propulsion Allocator. Three
+are designed but **not yet implemented**: Betti-1 Topology Guard, the ROS2
+Bridge, and the Mission Control Dashboard. The ninth, **C-CPL Docking**, sits
+between the two: the docking flow executes and is attested in the Evidence
+Vault, but its "signature" is an unauthenticated digest of two public values.
+Built, unauthenticated. See section 3.
 
 Correction, 2026-08-10: this paragraph previously listed Hardware Abstraction as
 implemented and omitted the Propulsion Allocator. That was wrong in both
