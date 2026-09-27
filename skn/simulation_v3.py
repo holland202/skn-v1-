@@ -86,7 +86,8 @@ def _formation_neighbor_pairs(shape: str, n: int) -> List[tuple]:
 
 
 def formation_v3(n_nodes: int = 4, shape: str = "tetrahedron", scale: float = 20.0,
-                 n_steps: int = 500, dt: float = 0.05, slc=None, verbose: bool = True) -> dict:
+                 n_steps: int = 500, dt: float = 0.05, slc=None, verbose: bool = True,
+                 record_every: int = 20) -> dict:
     formation_targets = _get_formation_targets(n_nodes, shape, scale)
     neighbor_pairs = _formation_neighbor_pairs(shape, n_nodes)
     rng = np.random.default_rng(seed=7)
@@ -137,7 +138,7 @@ def formation_v3(n_nodes: int = 4, shape: str = "tetrahedron", scale: float = 20
         ]))
         formation_errors.append(f_err)
         centroid_errors.append(float(np.linalg.norm(centroid_error)))
-        if step % 20 == 0:
+        if step % record_every == 0:
             trajectory_history.append({
                 "step": step, "formation_error": f_err,
                 "centroid_error": float(np.linalg.norm(centroid_error)),

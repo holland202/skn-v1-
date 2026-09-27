@@ -15,6 +15,11 @@
 
 ---
 
+![SKN-V1 demo: 6 nodes form a ring, the topology guard reads one piece and one hole, then a signed dock is verified and three attacks are refused](assets/skn_demo.gif)
+
+*Every frame is computed by `skn` in the run that made it: `python scripts/demo_visual.py` (writes
+`assets/skn_demo.gif` and `.mp4`). Simulation only; there is no hardware in this repository.*
+
 ## What This Is
 
 SKN-V1 is a software-defined swarm robotics framework that runs on anything from a Raspberry Pi 4 to a Snapdragon-class edge device. It implements nine tightly-coupled subsystems, each grounded in a specific mathematical structure:
