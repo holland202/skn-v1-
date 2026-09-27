@@ -131,9 +131,9 @@ Formation convergence by topology, measured on a Snapdragon 8 Elite under Termux
 
 | Metric | Value | Hardware | Notes |
 |--------|-------|----------|-------|
-| Control step (one `node.step`) | 0.065 ms | x86_64 container, Python 3.11 | `scripts/bench_k1_k2.py`; S25 not yet measured. The earlier "< 20 ms on RPi 4" and "< 2.1 ms on Snapdragon 8 Gen 3" were design targets, never measured (withdrawn 2026-09-27) |
+| Control step (one `node.step`) | 0.047 ms | S25 Ultra, Termux, Python 3.14 | `scripts/bench_k1_k2.py`; container 0.065 ms. The earlier "< 20 ms on RPi 4" and "< 2.1 ms on Snapdragon 8 Gen 3" were design targets, never measured (withdrawn 2026-09-27) |
 | Consensus convergence | NOT MEASURED | — | No convergence-rate run exists in this repo; the O(n log n) figure was not measured (withdrawn 2026-09-27) |
-| ML-DSA-65 sign / verify | 79.40 ms / 9.48 ms | S25 Ultra, Termux, Python 3.14 | pure-Python `dilithium-py`; `scripts/bench_k1_k2.py`; container: 37.84 / 8.80 ms |
+| ML-DSA-65 sign / verify | 30.49–79.40 ms / 9.32–9.48 ms | S25 Ultra, Termux, Python 3.14 | two phone runs; signing time varies because ML-DSA retries until a signature is accepted; pure-Python `dilithium-py`; container: 37.84 / 8.80 ms |
 | Topology compute (β₀, β₁) | 1.06 ms (n=32), 8.43 ms (n=64) | S25 Ultra, Termux, Python 3.14 | `scripts/bench_k1_k2.py`; container: 1.15 / 8.93 ms |
 | Vault attestation | NOT MEASURED | — | Vault exists in node.py; no timing run has been done |
 | BOM cost | ~$100/node (estimate) | RPi 4 + STM32F4 + sensors | a design estimate in DESIGN.md; nothing was bought or built (the file this row used to cite does not exist) |
