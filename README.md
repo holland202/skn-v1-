@@ -145,8 +145,8 @@ ILLUSTRATION, not simulation output. This figure is drawn from hardcoded values 
 | Control latency | < 20 ms | RPi 4 @ 1.5 GHz | 50 Hz loop, single-core |
 | Control latency | < 2.1 ms | Snapdragon 8 Gen 3 | Same Python code |
 | Consensus convergence | NOT MEASURED | — | No convergence-rate run exists in this repo; the O(n log n) figure was not measured (withdrawn 2026-09-27) |
-| ML-DSA-65 sign / verify | 37.84 ms / 8.80 ms | x86_64 container, Python 3.11 | pure-Python `dilithium-py`; `scripts/bench_k1_k2.py`; not yet measured on the S25 |
-| Topology compute (β₀, β₁) | 1.15 ms (n=32), 8.93 ms (n=64) | x86_64 container, Python 3.11 | `scripts/bench_k1_k2.py`; not yet measured on the S25 |
+| ML-DSA-65 sign / verify | 79.40 ms / 9.48 ms | S25 Ultra, Termux, Python 3.14 | pure-Python `dilithium-py`; `scripts/bench_k1_k2.py`; container: 37.84 / 8.80 ms |
+| Topology compute (β₀, β₁) | 1.06 ms (n=32), 8.43 ms (n=64) | S25 Ultra, Termux, Python 3.14 | `scripts/bench_k1_k2.py`; container: 1.15 / 8.93 ms |
 | Vault attestation | NOT MEASURED | — | Vault exists in node.py; no timing run has been done |
 | BOM cost | ~$100/node | RPi 4 + STM32F4 + sensors | See `HARDWARE_DEMO_ARCHITECTURE.md` |
 
