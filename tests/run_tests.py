@@ -82,5 +82,98 @@ class TestFormationV3(unittest.TestCase):
         r = formation_v3(8, "cube", 15.0, 300, 0.05, False)
         self.assertLess(r["final_error_m"], 0.01)
 
+class TestTopologyGuard(unittest.TestCase):
+    """K1, docs/PREREG_2026-09-27.md."""
+    def ring(self, n=6):
+        a = np.arange(n) * 2 * np.pi / n
+        R = 1 / (2 * np.sin(np.pi / n))  # unit spacing between neighbours
+        return np.c_[R * np.cos(a), R * np.sin(a), np.zeros(n)]
+    def test_k1a_ring_has_one_hole_until_filled(self):
+        from skn.topology import betti
+        self.assertEqual(betti(self.ring(), 1.1), (1, 1))
+        self.assertEqual(betti(self.ring(), 2.0)[1], 0)
+    def test_k1b_filled_tetrahedron_is_not_a_hole(self):
+        from skn.topology import betti, graph_cycle_rank
+        P = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]], float)
+        self.assertEqual(betti(P, 2.0), (1, 0))
+        self.assertEqual(graph_cycle_rank(P, 2.0), 3)
+    def test_k1c_two_clusters(self):
+        from skn.topology import betti
+        P = np.array([[0, 0, 0], [0.5, 0, 0], [0, 0.5, 0], [10, 0, 0], [10.5, 0, 0], [10, 0.5, 0]], float)
+        self.assertEqual(betti(P, 1.0)[0], 2)
+    def test_k1d_matches_reference_on_random_clouds(self):
+        from skn.topology import betti, rips_complex
+        def rank2(rows):
+            rows, r = [int("".join(map(str, row)) or "0", 2) for row in rows], 0
+            basis = []
+            for v in rows:
+                for b in basis:
+                    v = min(v, v ^ b)
+                if v:
+                    basis.append(v); r += 1
+            return r
+        rng = np.random.default_rng(7)
+        for _ in range(200):
+            n = int(rng.integers(2, 13)); P = rng.uniform(0, 3, (n, 2)); r = float(rng.uniform(0.5, 2.5))
+            n_, E, T = rips_complex(P, r)
+            d1 = [[1 if v in e else 0 for e in E] for v in range(n)]
+            d2 = [[1 if set(e) <= set(t) else 0 for t in T] for e in E]
+            r1 = rank2(d1) if E else 0; r2 = rank2(d2) if T else 0
+            self.assertEqual(betti(P, r), (n - r1, len(E) - r1 - r2))
+    def test_k1e_guard_does_not_cut_links_in_rendezvous(self):
+        from skn.simulation import rendezvous
+        self.assertEqual(rendezvous(n_nodes=6, n_steps=30, verbose=False)["frp_events"], 0)
+
+class TestSignedDocking(unittest.TestCase):
+    """K2, docs/PREREG_2026-09-27.md."""
+    def setUp(self):
+        from skn import ccpl
+        if not ccpl.available():
+            self.skipTest("dilithium-py not installed")
+    def dock(self, nid="SKN-001"):
+        from skn.node import SKNV1_SovereignNode
+        n = SKNV1_SovereignNode(nid, np.zeros(6, np.float32))
+        ok, detail = n.ccpl_initiate_dock("SKN-002", np.eye(3, dtype=np.float32), np.full(3, 0.2, np.float32))
+        self.assertTrue(ok, detail)
+        return n
+    def test_k2a_genuine_record_verifies(self):
+        from skn.ccpl import verify_dock
+        n = self.dock()
+        self.assertEqual(verify_dock(n.last_dock_record, n.dock_public_key), (True, "ML-DSA-65 signature valid"))
+        last = n.vault._records[-1]["preimage"]
+        self.assertIn(b"CCPL_DOCK", last)
+        self.assertIn(b"signature_sha3_256", last)
+        self.assertTrue(n.vault.verify_chain())
+    def test_k2b_tamper_wrong_key_replay_all_fail(self):
+        import copy
+        from skn.ccpl import verify_dock, sign_manifest
+        n, other = self.dock("SKN-001"), self.dock("SKN-009")
+        rec = n.last_dock_record
+        for field, value in (("target_id", "SKN-666"), ("pose", [9.0] * 6), ("nonce", "00" * 16)):
+            bad = copy.deepcopy(rec); bad["manifest"][field] = value
+            self.assertFalse(verify_dock(bad, n.dock_public_key)[0], field)
+            # an attacker who also recomputes the digest still fails on the signature
+            import hashlib
+            from skn.ccpl import canonical
+            bad["manifest_sha3_512"] = hashlib.sha3_512(canonical(bad["manifest"])).hexdigest()
+            self.assertEqual(verify_dock(bad, n.dock_public_key)[1], "signature does not verify")
+        self.assertFalse(verify_dock(rec, other.dock_public_key)[0])
+        seen = set()
+        self.assertTrue(verify_dock(rec, n.dock_public_key, seen)[0])
+        self.assertEqual(verify_dock(rec, n.dock_public_key, seen)[1], "nonce already seen (replay)")
+    def test_k2c_fails_closed_without_the_library(self):
+        from skn import ccpl
+        from skn.node import SKNV1_SovereignNode
+        saved, ccpl.ML_DSA_65 = ccpl.ML_DSA_65, None
+        try:
+            n = SKNV1_SovereignNode("SKN-001", np.zeros(6, np.float32))
+            depth = n.vault.chain_length
+            ok, why = n.ccpl_initiate_dock("SKN-002", np.eye(3, dtype=np.float32), np.zeros(3, np.float32))
+            self.assertEqual((ok, n.c_cpl_locked, n.vault.chain_length), (False, False, depth))
+            self.assertIn("unavailable", why)
+        finally:
+            ccpl.ML_DSA_65 = saved
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

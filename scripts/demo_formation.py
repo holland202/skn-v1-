@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """SKN-V1 Formation Demo v3 — tetrahedron, cube, ring."""
+import sys, os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))  # run from a checkout without pip install
 from skn.simulation_v3 import formation_v3
 
 for shape, n, scale in [("tetrahedron", 4, 20.0), ("cube", 8, 15.0), ("ring", 6, 25.0)]:

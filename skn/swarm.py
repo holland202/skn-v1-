@@ -2,6 +2,7 @@
 skn/swarm.py — SKN-V1 SWARM CONSENSUS ENGINE
 """
 import numpy as np
+from .topology import betti
 import logging
 from typing import Dict, List, Optional, Tuple, Set
 from .node import SKNV1_SovereignNode
@@ -86,32 +87,17 @@ class SwarmGossipProtocol:
         return total / (N * (N - 1) / 2)
 
     def compute_betti_one(self, comm_range: float = 50.0) -> int:
-        poses = {nid: n.pose for nid, n in self.nodes.items()}
-        nids = list(poses.keys())
-        V = len(nids)
-        if V < 2:
-            return 0
-        E = 0
-        for i in range(V):
-            for j in range(i + 1, V):
-                dist = float(np.linalg.norm(poses[nids[i]][:3] - poses[nids[j]][:3]))
-                if dist < comm_range:
-                    E += 1
-        parent = list(range(V))
-        def find(x: int) -> int:
-            while parent[x] != x:
-                parent[x] = parent[parent[x]]
-                x = parent[x]
-            return x
-        for i in range(V):
-            for j in range(i + 1, V):
-                dist = float(np.linalg.norm(poses[nids[i]][:3] - poses[nids[j]][:3]))
-                if dist < comm_range:
-                    ri, rj = find(i), find(j)
-                    if ri != rj:
-                        parent[ri] = rj
-        C = len({find(i) for i in range(V)})
-        return max(0, E - V + C)
+        """b1 of the swarm's Vietoris-Rips complex at radius comm_range (skn.topology, K1).
+        Before 2026-09-27 this returned E - V + C of the communication graph, which counts every triangle
+        of a fully connected formation as a hole; that count is kept as skn.topology.graph_cycle_rank."""
+        return betti(self._positions(), comm_range)[1]
+
+    def compute_betti_zero(self, comm_range: float = 50.0) -> int:
+        """b0: number of connected pieces at radius comm_range. Fragmentation is b0 > 1."""
+        return betti(self._positions(), comm_range)[0]
+
+    def _positions(self) -> np.ndarray:
+        return np.array([n.pose[:3] for n in self.nodes.values()], dtype=float).reshape(-1, 3)
 
     def _formation_reconfiguration_protocol(self) -> None:
         nids = list(self.nodes.keys())
@@ -152,7 +138,8 @@ class SwarmGossipProtocol:
         return {
             "n_nodes": len(self.nodes), "gossip_steps": self._gossip_steps,
             "frp_events": self._frp_count, "consensus_error": self.consensus_error(),
-            "beta_1": self.compute_betti_one(), "centroid": centroid.tolist(),
+            "beta_1": self.compute_betti_one(), "beta_0": self.compute_betti_zero(),
+            "centroid": centroid.tolist(),
             "topology": {k: list(v) for k, v in self.topology.items()},
             "nodes": node_statuses,
         }

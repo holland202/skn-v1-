@@ -875,9 +875,17 @@ def formation_v3(n_nodes: int = 4, shape: str = "tetrahedron", scale: float = 20
 
 
 def main():
-    """Write all embedded files to disk."""
+    """Write all embedded files to disk. HISTORICAL: the embedded sources are the v1.7.0 originals and are
+    older than skn/ (they predate the vault fix, the Bures fix, the topology guard and signed docking).
+    Running this over a checkout would silently revert those fixes, so it refuses to overwrite an existing
+    file unless --force is given (2026-09-27)."""
+    import sys
+    force = "--force" in sys.argv[1:]
     for path, content in FILES.items():
         full_path = os.path.join(os.getcwd(), path)
+        if os.path.exists(full_path) and not force:
+            print(f"  REFUSED {path}: exists (the embedded copy is older; pass --force to overwrite)")
+            continue
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
         with open(full_path, 'w') as f:
             f.write(content.strip() + '\n')

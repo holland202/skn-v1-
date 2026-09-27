@@ -1,3 +1,4 @@
 numpy>=1.24.0
 scipy>=1.10.0
 matplotlib>=3.7.0
+dilithium-py>=1.4.0   # C-CPL docking signatures (ML-DSA-65); docking fails closed without it

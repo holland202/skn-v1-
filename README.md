@@ -22,25 +22,28 @@ SKN-V1 is a software-defined swarm robotics framework that runs on anything from
 | Subsystem | Mathematical Foundation | What It Does |
 |-----------|------------------------|--------------|
 | **Natural Gradient Kinematic Control** | SE(3) pose tracking on the Fisher-Rao information manifold | Intended to replace Euclidean gradient descent with Riemannian natural gradients. MEASURED: the metric is currently a scalar multiple of the identity, so the step is Euclidean in direction. See Natural Gradient on SE(3) below |
-| **Riemannian Gossip Consensus** | KL-divergence minimization with adaptive Fisher metrics | Distributed consensus where neighbor updates respect the local information geometry, not just Euclidean distance |
-| **C-CPL Docking** *(built, unauthenticated)* | Manifest digest, NOT a signature: SHA256(SHA3-256(manifest) || node_id), both inputs public | Docking executes and is attested in the vault, but nothing authenticates it. ML-DSA-65 is the design target, not the code. See section 3 |
+| **Riemannian Gossip Consensus** | KL-divergence minimization with adaptive Fisher metrics | *Measured against the code (2026-09-27):* `gossip_step` averages neighbour **poses**, weighted by each node's Fisher metric, which is isotropic (section 1). It is Laplacian consensus on poses; no belief distributions and no KL are computed. See section 2 |
+| **C-CPL Docking** *(built, signed, 2026-09-27)* | ML-DSA-65 (FIPS 204) signature over SHA3-512 of the manifest, via the pure-Python reference `dilithium-py` | Docking locks only with a signature, and fails closed without the library. `skn.ccpl.verify_dock` checks the record, the key and the nonce. Not side-channel hardened. See section 3 |
 | **Evidence Vault** | SHA3-512 tamper-evident hash chain with per-state attestation | Every state transition is hashed, chained, and attested; Merkle roots enable O(log n) verification |
 | **ISRU Monitor** | Gibbs free energy filtering for resource extraction | Bayesian update of P(ore \| sensor data) using thermodynamic priors; threshold at ΔG < −50 kJ/mol |
-| **Betti-1 Topology Guard** *(not built)* | Real-time persistent homology (GUDHI + ripser backend) | Computes β₁ in real time to detect swarm fragmentation before it becomes catastrophic |
+| **Betti-1 Topology Guard** *(built, 2026-09-27)* | Exact β₀ and β₁ of the Vietoris-Rips complex over GF(2), pure NumPy (`skn/topology.py`) | Fragmentation is β₀ > 1; a coverage hole is β₁ > 0. Replaces a graph cycle count that called every triangle a hole (section 4) |
 | **ROS2 Bridge** *(not built)* | Standard ROS2 Humble topic/service API | Exposes `/swarm/pose_array`, `/skn/dock_request`, and diagnostic topics with QoS `reliable, depth 10` |
 | **Propulsion Allocator** | Pseudoinverse allocation over 6 HET thrusters + 3 CMG axes | Maps a 6-DOF velocity command to actuator commands, with clipping and CMG desaturation by null-space projection |
 | **Mission Control Dashboard** *(not built)* | WebSocket-fed HTML5 canvas renderer | Real-time visualization of swarm state, topology barcodes, and crypto attestation chain |
 
 The unifying principle: **every subsystem treats uncertainty as geometry**. Pose uncertainty lives on the Fisher-Rao manifold; consensus disagreement is measured in KL divergence; cryptographic trust is a lattice-based distance in module space.
 
-**Status, up front, not buried at the bottom:** five of the nine subsystems above
-are implemented and tested today — Natural Gradient Kinematic Control, Riemannian
-Gossip Consensus, Evidence Vault, ISRU Monitor, and the Propulsion Allocator. Three
-are designed but **not yet implemented**: Betti-1 Topology Guard, the ROS2
-Bridge, and the Mission Control Dashboard. The ninth, **C-CPL Docking**, sits
-between the two: the docking flow executes and is attested in the Evidence
-Vault, but its "signature" is an unauthenticated digest of two public values.
-Built, unauthenticated. See section 3.
+**Status, up front, not buried at the bottom (updated 2026-09-27):** seven of the nine subsystems
+above run and are tested: Natural Gradient Kinematic Control, Riemannian Gossip Consensus (as pose
+consensus, see section 2), Evidence Vault, ISRU Monitor, the Propulsion Allocator, the **Betti-1
+Topology Guard** and **C-CPL Docking with ML-DSA-65 signatures**. Two are designed but **not
+implemented**: the ROS2 Bridge and the Mission Control Dashboard. There is still no hardware. What
+changed and why, with the predictions registered before the code: `docs/PREREG_2026-09-27.md` and
+`docs/RESULTS_2026-09-27.md`.
+
+*Superseded status, kept:* until 2026-09-27 this paragraph listed five subsystems as implemented,
+the Betti-1 guard as not built, and C-CPL as "built, unauthenticated" (its "signature" was
+SHA256(SHA3-256(manifest) || node_id), a digest of two public values).
 
 Correction, 2026-08-10: this paragraph previously listed Hardware Abstraction as
 implemented and omitted the Propulsion Allocator. That was wrong in both
@@ -64,7 +67,7 @@ cd skn-v1-
 # Install (editable, for development)
 pip install -e .
 
-# Run tests (15 tests, all passing)
+# Run tests (23 tests, all passing; the 3 docking tests need `pip install dilithium-py`)
 python tests/run_tests.py
 
 # Run demos
@@ -114,7 +117,7 @@ ILLUSTRATION, not simulation output. This figure is drawn from hardcoded values 
   <img src="assets/performance_dashboard.png" alt="Performance Dashboard" width="900"/>
 </p>
 
-**Key insight**: On Raspberry Pi 4, the control loop alone consumes 18.5 ms of the 20 ms budget (50 Hz). The Snapdragon 8 Gen 3 leaves 17.9 ms headroom — enough to run topology computation (4.5 ms) and cryptographic attestation (2.3 ms) in the same cycle. This is why the hardware abstraction layer exists: the same Python code runs on both, but the Snapdragon unlocks real-time crypto and topology.
+**Design target, not a measurement** (see the status note at the end): On Raspberry Pi 4, the control loop alone consumes 18.5 ms of the 20 ms budget (50 Hz). The Snapdragon 8 Gen 3 leaves 17.9 ms headroom — enough to run topology computation (4.5 ms) and cryptographic attestation (2.3 ms) in the same cycle. This is why the hardware abstraction layer exists: the same Python code runs on both, but the Snapdragon unlocks real-time crypto and topology.
 
 ---
 
@@ -141,9 +144,9 @@ ILLUSTRATION, not simulation output. This figure is drawn from hardcoded values 
 |--------|-------|----------|-------|
 | Control latency | < 20 ms | RPi 4 @ 1.5 GHz | 50 Hz loop, single-core |
 | Control latency | < 2.1 ms | Snapdragon 8 Gen 3 | Same Python code |
-| Consensus convergence | O(n log n) | n ≤ 64 nodes | Verified up to 64 |
-| Crypto handshake (ML-DSA-65) | NOT MEASURED | — | Subsystem not built; the figures previously here were hardcoded literals |
-| Topology compute (β₁) | NOT MEASURED | — | Subsystem not built; same |
+| Consensus convergence | NOT MEASURED | — | No convergence-rate run exists in this repo; the O(n log n) figure was not measured (withdrawn 2026-09-27) |
+| ML-DSA-65 sign / verify | 37.84 ms / 8.80 ms | x86_64 container, Python 3.11 | pure-Python `dilithium-py`; `scripts/bench_k1_k2.py`; not yet measured on the S25 |
+| Topology compute (β₀, β₁) | 1.15 ms (n=32), 8.93 ms (n=64) | x86_64 container, Python 3.11 | `scripts/bench_k1_k2.py`; not yet measured on the S25 |
 | Vault attestation | NOT MEASURED | — | Vault exists in node.py; no timing run has been done |
 | BOM cost | ~$100/node | RPi 4 + STM32F4 + sensors | See `HARDWARE_DEMO_ARCHITECTURE.md` |
 
@@ -228,10 +231,21 @@ log pᵢ^{(k+1)} = (1 − α) log pᵢ^{(k)} + α · avg_{j∈N(i)} log pⱼ^{(k
 
 with α = 0.08 (gossip rate). Convergence is guaranteed for connected graphs with algebraic connectivity λ₂ > 0, with rate O(n log n) for uniform gossip.
 
-### 3. C-CPL Docking — manifest digest, NOT a signature
+**What the code does (checked 2026-09-27).** The formulation above is the target. `SwarmGossipProtocol.gossip_step`
+moves each node's 6-vector pose by −η·dt·Σⱼ G⁻¹(poseᵢ − poseⱼ) over its neighbours: Laplacian consensus
+on poses, with G the node's isotropic Fisher metric. No belief distributions, no logarithms, no KL. The
+O(n log n) rate was never measured here and is withdrawn from Key Metrics.
 
-**Status: partially implemented, and weaker than its name.** The docking flow
-runs. The cryptography does not exist.
+### 3. C-CPL Docking — ML-DSA-65 signed (2026-09-27)
+
+**Now:** `ccpl_initiate_dock` signs SHA3-512 of a JSON manifest (node ids, pose, alignment, strain, a
+random nonce, time) with the node's ML-DSA-65 key (`skn/ccpl.py`, `dilithium-py`). It locks only after
+signing, and commits the digests of the manifest, the signature and the public key to the vault.
+`verify_dock(record, public_key, seen_nonces)` checks all three and refuses a replayed nonce. Without
+`dilithium-py` it does not lock and commits nothing. Tested: tests K2a-K2c. The implementation is the
+pure-Python reference: FIPS 204 correct, not constant time, not side-channel hardened.
+
+**Before 2026-09-27, kept as the record:** the docking flow ran, but the cryptography did not exist.
 
 What the design calls for:
 
@@ -257,13 +271,26 @@ The docking path is nonetheless live: on `align_quality > 0.5` it sets
 records it accurately as an event that happened. The vault is doing its job;
 what it attests to is a lock that no cryptography defended.
 
-The ML-DSA-65 migration path is specified in DESIGN.md. Until it is
-implemented, treat every docking attestation in this repository as
-unauthenticated.
+The ML-DSA-65 migration path was specified in DESIGN.md; it is now implemented (above). Docking
+attestations made before 2026-09-27 were unauthenticated.
 
 The Evidence Vault chain itself is real: SHA3-512, with a verify path that
 recomputes each link. Verification is O(1) per event and O(n) for the full
 chain. It is tamper-evident, not tamper-proof — see Honest Limitations.
+
+### 4. Betti-1 Topology Guard (built 2026-09-27)
+
+`skn/topology.py` computes the exact Betti numbers of the swarm's Vietoris-Rips complex at the
+communication radius r, over GF(2), with NumPy only: edges are pairs closer than r, and every 3-clique
+is a filled triangle. β₀ = V − rank ∂₁ counts connected pieces (β₀ > 1 is fragmentation). β₁ =
+(E − rank ∂₁) − rank ∂₂ counts holes.
+
+**What it replaced, and why it mattered.** `compute_betti_one` used to return E − V + C, the cycle rank
+of the communication *graph*. Four nodes all in range score 3 on that count, although their
+tetrahedron is filled. `gossip_step` treated any positive count as a fault, and the reconfiguration
+protocol then cut links between the best-connected nodes. In `skn.rendezvous` (6 nodes, 200 steps) the
+old guard fired **200 times out of 200** and cut 6 directed links. The Rips guard fired 0 times in the
+same run (`scripts/topology_guard_k1e.py`). The old count is kept as `topology.graph_cycle_rank`.
 
 ---
 
@@ -304,7 +331,7 @@ skn-v1-/
 ```
 
 Generated from git ls-tree. Vault, ISRU, docking and propulsion are classes
-inside node.py, not separate modules. Betti-1 topology is in swarm.py. There
+inside node.py, not separate modules. Betti numbers are in topology.py (used by swarm.py); docking signatures in ccpl.py. There
 is no docs/, launch/, config/ or firmware/ directory, and no ros2_bridge.py.
 
 ---
@@ -348,19 +375,17 @@ Previously claimed, and withdrawn:
 - *"Betti-1 Guard uses ripser, not GUDHI, for speed."* Neither library is a
   dependency of this repository.
 
-What remains, and is accurate:
+What remains, and is accurate (rewritten 2026-09-27: items 2, 3, 5 and 6 of the old list repeated
+the four withdrawn claims above word for word, directly under their withdrawal):
 
-1. **No real hardware tests yet.** All metrics above are simulation or single-node bench. Multi-node RF mesh validation is scheduled for v1.8.0.
-
-2. **ML-DSA-65 is a wrapper around liboqs.** The cryptographic primitives are correct, but the integration is not yet side-channel resistant. Do not deploy in adversarial RF environments without the v2.0 hardening audit.
-
-3. **Persistent homology is O(n²) in point cloud size.** For n > 64 nodes, β₁ computation exceeds the 20 ms budget on RPi 4. The Snapdragon handles n = 128; beyond that, subsampling is required.
-
-4. **ISRU Monitor uses synthetic thermodynamic data.** Real regolith/ice sensor fusion is not yet implemented. The Bayesian update framework is correct; the priors are placeholders.
-
-5. **ROS2 bridge is single-threaded.** The executor runs in the same process as the control loop. For n > 16 nodes, run the bridge as a separate process and use shared memory IPC.
-
-6. **Betti-1 Guard uses ripser, not GUDHI, for speed.** This means no cubical complex support — only Vietoris-Rips. For grid-based sensor coverage, use GUDHI directly (slower but more accurate).
+1. **No real hardware tests yet.** All metrics are simulation, on a container or the S25.
+2. **ML-DSA-65 is the pure-Python reference `dilithium-py`.** The algorithm is FIPS 204. The
+   implementation is not constant time and not side-channel hardened, and keys live in process memory.
+   Do not trust it on an adversarial radio link.
+3. **The topology guard is exact but cubic.** β₀ and β₁ of the Rips complex at one radius (not a
+   persistence barcode), O(n³) triangles: 8.93 ms at n = 64 on the container.
+4. **ISRU Monitor uses synthetic thermodynamic data.** The priors are placeholders.
+5. **Gossip is pose consensus.** See section 2.
 
 ---
 
@@ -400,7 +425,7 @@ others are designed and described above but not yet implemented. This section is
 the honest boundary so you know what executes on a fresh clone. Visuals and the
 architecture narrative above describe the full **target** system.
 
-**Implemented and tested** (`python tests/run_tests.py` → 15/15 passing):
+**Implemented and tested** (`python tests/run_tests.py` → 23/23 passing, 2026-09-27; 15/15 before):
 - Natural-gradient kinematic formation control — converges (tetrahedron to
   0.0000 m formation error over 300 steps; verified in `skn/simulation_v3.py`).
 - Propulsion allocator (HET + CMG) — output shape and actuator bounds tested.
@@ -409,12 +434,15 @@ architecture narrative above describe the full **target** system.
   genuinely recomputes every link and detects edited states, forged hashes, and
   reordered links (4 anti-vacuity tests). *Was previously vacuous; fixed and
   tested 2026-07-20.*
-- Swarm gossip consensus — present in `skn/swarm.py`.
+- Swarm gossip consensus — present in `skn/swarm.py` (pose consensus; see section 2).
+- **Betti-1 topology guard** — `skn/topology.py`, 5 tests including 200 random clouds against an
+  independent reference (2026-09-27).
+- **C-CPL docking, ML-DSA-65 signed** — `skn/ccpl.py`, 3 tests: genuine verifies; tampered, wrong-key
+  and replayed records fail; no library, no lock (2026-09-27).
 
 **Full detail on what's not implemented yet** (status is stated up front now, see
 "What This Is" above — this section keeps the specifics): C-CPL post-quantum docking
-needs ML-DSA-65 lattice signatures, not built. Betti-1 topology guard needs a
-GUDHI/ripser backend, not built. ROS2 Humble bridge, not built. STM32F4 firmware
+*(done 2026-09-27: ML-DSA-65 signing and the Betti-1 guard are built, see above)*. ROS2 Humble bridge, not built. STM32F4 firmware
 flashing, not built. Demo scripts: only `scripts/demo_formation.py` exists today;
 `demo_rendezvous.py`, `demo_docking.py`, `demo_mission_control.py`, and
 `flash_firmware.py` are planned.

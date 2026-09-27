@@ -160,6 +160,8 @@ class SKNV1_SovereignNode:
         self.slc = slc_instance
         self._step_count = 0
         self._dock_count = 0
+        self._dock_keys = None  # (public, secret) ML-DSA-65 keys, made at the first dock
+        self.last_dock_record = None
         self._start_time = time.time()
         self.vault.commit(self.pose, {"event": "init", "node_id": node_id})
 
@@ -214,24 +216,35 @@ class SKNV1_SovereignNode:
     def ccpl_initiate_dock(self, target_node_id: str,
                            alignment_tensor: np.ndarray,
                            strain_energy: np.ndarray) -> Tuple[bool, str]:
-        psi_proxy = self.pose.tobytes()
-        manifest_data = (
-            psi_proxy +
-            alignment_tensor.astype(np.float32).tobytes() +
-            strain_energy.astype(np.float32).tobytes()
-        )
-        H_m = hashlib.sha3_256(manifest_data).hexdigest()
-        sig_stub = hashlib.sha256(H_m.encode() + self.node_id.encode()).hexdigest()
+        """Dock only with an ML-DSA-65 signature on the manifest (skn.ccpl, K2). Returns (locked, detail):
+        detail is the manifest's SHA3-512 on success, or why nothing locked. Fails closed without dilithium-py.
+        Before 2026-09-27 the "signature" was SHA256(SHA3-256(manifest) || node_id), two public values."""
+        from . import ccpl
+        if not ccpl.available():
+            return False, ccpl.UNAVAILABLE
+        if self._dock_keys is None:
+            self._dock_keys = ccpl.keygen()
+        pk, sk = self._dock_keys
         align_quality = float(np.trace(alignment_tensor))
-        success = align_quality > 0.5
-        if success:
-            self.c_cpl_locked = True
-            self._dock_count += 1
-            self.vault.commit(self.pose, {
-                "event": "CCPL_DOCK", "target": target_node_id,
-                "manifest_hash": H_m[:16], "dock_n": self._dock_count
-            })
-        return success, H_m
+        if align_quality <= 0.5:
+            return False, f"alignment quality {align_quality:.3f} <= 0.5"
+        manifest = ccpl.make_manifest(self.node_id, target_node_id, self.pose,
+                                      np.asarray(alignment_tensor).ravel(), np.asarray(strain_energy).ravel())
+        record = ccpl.sign_manifest(manifest, pk, sk)
+        self.last_dock_record = record
+        self.c_cpl_locked = True
+        self._dock_count += 1
+        self.vault.commit(self.pose, {
+            "event": "CCPL_DOCK", "target": target_node_id, "dock_n": self._dock_count,
+            "manifest_sha3_512": record["manifest_sha3_512"][:32],
+            "signature_sha3_256": hashlib.sha3_256(bytes.fromhex(record["signature"])).hexdigest()[:32],
+            "public_key_sha3_256": record["public_key_sha3_256"][:32],
+        })
+        return True, record["manifest_sha3_512"]
+
+    @property
+    def dock_public_key(self) -> Optional[bytes]:
+        return None if self._dock_keys is None else self._dock_keys[0]
 
     def ccpl_release(self) -> None:
         if self.c_cpl_locked:
