@@ -14,6 +14,9 @@ def med(f, k):
 
 
 print(f"{platform.machine()} | Python {platform.python_version()}")
+from skn.node import SKNV1_SovereignNode
+_node, _tgt = SKNV1_SovereignNode("BENCH", np.full(6, 10, np.float32)), np.zeros(6, np.float32)
+print(f"control step (one node.step, incl. vault commit): {med(lambda: _node.step(_tgt, 0.05), 200):.3f} ms")
 rng = np.random.default_rng(0)
 for n in (4, 8, 16, 32, 64):
     P = rng.uniform(0, 10, (n, 3))

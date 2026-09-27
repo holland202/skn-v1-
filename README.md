@@ -1,24 +1,39 @@
 # SKN-V1 — Sovereign Kinematic Node
 
 <p align="center">
-  <img src="assets/architecture_diagram.png" alt="SKN-V1 Architecture" width="900"/>
-</p>
-
-<p align="center">
   <a href="https://github.com/holland202/skn-v1-/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/python-3.9%2B-blue" alt="Python 3.9+">
-  <img src="https://img.shields.io/badge/tests-passing-brightgreen" alt="Tests passing">
-  <img src="https://img.shields.io/badge/platform-RPi4%20%7C%20Snapdragon-orange" alt="Platform">
+  <a href="https://github.com/holland202/skn-v1-/actions/workflows/verify.yml"><img src="https://github.com/holland202/skn-v1-/actions/workflows/verify.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/runs%20on-S25%20Ultra%20(Termux)%20%7C%20Linux-orange" alt="Runs on">
+  <img src="https://img.shields.io/badge/hardware-none%20(simulation)-lightgrey" alt="Hardware: none">
 </p>
 
-**Topology-aware, cryptographically sovereign swarm robotics framework** unifying kinematics, information geometry, and post-quantum trust for deep-space and terrestrial edge operations.
-
----
+**A swarm-control simulation in Python: formation control, an exact topology guard (Betti numbers of
+the swarm), ML-DSA-65 post-quantum signed docking, and a SHA3-512 evidence chain.** Built and
+tested on a phone. The long-term design target (deep-space and edge swarms on real hardware) is in
+[Target design](#target-design-not-built) below.
 
 ![SKN-V1 demo: 6 nodes form a ring, the topology guard reads one piece and one hole, then a signed dock is verified and three attacks are refused](assets/skn_demo.gif)
 
 *Every frame is computed by `skn` in the run that made it: `python scripts/demo_visual.py` (writes
 `assets/skn_demo.gif` and `.mp4`). Simulation only; there is no hardware in this repository.*
+
+## What runs today (2026-09-27)
+
+| | where | checked by |
+|---|---|---|
+| Formation control: 4, 6 and 8 nodes to 10⁻⁵ m | `skn/simulation_v3.py` | tests, `scripts/demo_formation.py` |
+| Topology guard: exact β₀ (pieces) and β₁ (holes) of the swarm | `skn/topology.py` | 5 tests, incl. 200 random clouds against a reference |
+| Docking signed with ML-DSA-65; tampered, wrong-key and replayed records refused | `skn/ccpl.py` | 3 tests |
+| Evidence vault: SHA3-512 chain that detects edits, forgeries and reordering | `skn/node.py` | 6 tests |
+| Pose consensus, propulsion allocator, ISRU filter | `skn/swarm.py`, `skn/node.py` | tests |
+| Live terminal dashboard | `python skn_orbital_tui.py` | every number from `skn` or the device |
+
+**Not built:** hardware of any kind, a ROS2 bridge, a web dashboard. **Known physics gaps:** the
+"natural gradient" metric is currently the identity, the thrusters cannot push in −z, and actuator
+limits are not fed back into motion (see sections 1 and the open experiment K3 in
+`docs/RESULTS_2026-09-27.md`). The terminal and video dashboards in `mockups/` use random data and
+are labelled as such.
 
 ## What This Is
 
@@ -72,17 +87,19 @@ cd skn-v1-
 # Install (editable, for development)
 pip install -e .
 
-# Run tests (23 tests, all passing; the 3 docking tests need `pip install dilithium-py`)
+# Run tests (24 tests, all passing; the docking tests need `pip install dilithium-py`)
 python tests/run_tests.py
 
 # Run demos
-python scripts/demo_formation.py      # Tetrahedron / cube / ring convergence
+python scripts/demo_formation.py      # tetrahedron / cube / ring convergence
+python skn_orbital_tui.py             # live terminal dashboard (Ctrl+C to quit)
+python scripts/demo_visual.py         # renders the demo video above
+python scripts/bench_k1_k2.py         # timings on your machine
 ```
 
-Only demo_formation.py exists today. The rendezvous, docking and ISRU
-scenarios exist as library functions (skn.rendezvous, skn.docking_chain,
-skn.isru_operation), not as scripts. There is no hardware in this repo:
-no firmware, no serial code, no Pi. See Implementation Status below.
+The rendezvous, docking and ISRU scenarios also exist as library functions (`skn.rendezvous`,
+`skn.docking_chain`, `skn.isru_operation`). There is no hardware in this repo: no firmware, no serial
+code, no Pi.
 
 ---
 
@@ -108,31 +125,31 @@ Formation convergence by topology, measured on a Snapdragon 8 Elite under Termux
 
 **Open.** Whether convergence rate varies with topology here is unmeasured. Each node runs a per-node scalar-gain update, so there is reason to expect it does not — but no registered experiment has tested it.
 
-### 3D Rendezvous
+---
 
-<p align="center">
-  <img src="assets/rendezvous_3d.png" alt="3D Rendezvous" width="700"/>
-</p>
+### Key Metrics
 
-ILLUSTRATION, not simulation output. This figure is drawn from hardcoded values (12 points seeded on a sphere, exponential decay plus noise); no 12-node rendezvous run exists in this repo. The real formation runs are 4, 6 and 8 nodes and are tabulated above.
-
-### Performance Dashboard
-
-<p align="center">
-  <img src="assets/performance_dashboard.png" alt="Performance Dashboard" width="900"/>
-</p>
-
-**Design target, not a measurement** (see the status note at the end): On Raspberry Pi 4, the control loop alone consumes 18.5 ms of the 20 ms budget (50 Hz). The Snapdragon 8 Gen 3 leaves 17.9 ms headroom — enough to run topology computation (4.5 ms) and cryptographic attestation (2.3 ms) in the same cycle. This is why the hardware abstraction layer exists: the same Python code runs on both, but the Snapdragon unlocks real-time crypto and topology.
+| Metric | Value | Hardware | Notes |
+|--------|-------|----------|-------|
+| Control step (one `node.step`) | 0.065 ms | x86_64 container, Python 3.11 | `scripts/bench_k1_k2.py`; S25 not yet measured. The earlier "< 20 ms on RPi 4" and "< 2.1 ms on Snapdragon 8 Gen 3" were design targets, never measured (withdrawn 2026-09-27) |
+| Consensus convergence | NOT MEASURED | — | No convergence-rate run exists in this repo; the O(n log n) figure was not measured (withdrawn 2026-09-27) |
+| ML-DSA-65 sign / verify | 79.40 ms / 9.48 ms | S25 Ultra, Termux, Python 3.14 | pure-Python `dilithium-py`; `scripts/bench_k1_k2.py`; container: 37.84 / 8.80 ms |
+| Topology compute (β₀, β₁) | 1.06 ms (n=32), 8.43 ms (n=64) | S25 Ultra, Termux, Python 3.14 | `scripts/bench_k1_k2.py`; container: 1.15 / 8.93 ms |
+| Vault attestation | NOT MEASURED | — | Vault exists in node.py; no timing run has been done |
+| BOM cost | ~$100/node (estimate) | RPi 4 + STM32F4 + sensors | a design estimate in DESIGN.md; nothing was bought or built (the file this row used to cite does not exist) |
 
 ---
 
-## Architecture
+## Target design (not built)
+
+Everything in this section is the design the project is heading toward, not what the code does
+today. What runs is listed in [What runs today](#what-runs-today-2026-09-27).
 
 <p align="center">
-  <img src="assets/architecture_diagram.png" alt="Architecture Diagram" width="900"/>
+  <img src="assets/architecture_diagram.png" alt="Target architecture: nine subsystems, of which seven run in simulation" width="900"/>
 </p>
 
-### Data Flow
+### Data Flow (target)
 
 1. **Sensors** → Hardware Abstraction (SE(3) or SE(2) pose estimate)
 2. **Pose** → Natural Gradient Control (Fisher-Rao gradient step)
@@ -143,17 +160,25 @@ ILLUSTRATION, not simulation output. This figure is drawn from hardcoded values 
 7. **Diagnostics** → ROS2 Bridge (publish to `/swarm/pose_array`, `/skn/health`)
 8. **Visualization** → Mission Control (WebSocket → HTML5 canvas)
 
-### Key Metrics
+## Illustrations (not results)
 
-| Metric | Value | Hardware | Notes |
-|--------|-------|----------|-------|
-| Control latency | < 20 ms | RPi 4 @ 1.5 GHz | 50 Hz loop, single-core |
-| Control latency | < 2.1 ms | Snapdragon 8 Gen 3 | Same Python code |
-| Consensus convergence | NOT MEASURED | — | No convergence-rate run exists in this repo; the O(n log n) figure was not measured (withdrawn 2026-09-27) |
-| ML-DSA-65 sign / verify | 79.40 ms / 9.48 ms | S25 Ultra, Termux, Python 3.14 | pure-Python `dilithium-py`; `scripts/bench_k1_k2.py`; container: 37.84 / 8.80 ms |
-| Topology compute (β₀, β₁) | 1.06 ms (n=32), 8.43 ms (n=64) | S25 Ultra, Termux, Python 3.14 | `scripts/bench_k1_k2.py`; container: 1.15 / 8.93 ms |
-| Vault attestation | NOT MEASURED | — | Vault exists in node.py; no timing run has been done |
-| BOM cost | ~$100/node | RPi 4 + STM32F4 + sensors | See `HARDWARE_DEMO_ARCHITECTURE.md` |
+Drawn from hard-coded values by `legacy/generate_assets.py`, kept for the look, and supporting no claim.
+
+### 3D Rendezvous (illustration)
+
+<p align="center">
+  <img src="assets/rendezvous_3d.png" alt="3D Rendezvous" width="700"/>
+</p>
+
+ILLUSTRATION, not simulation output. This figure is drawn from hardcoded values (12 points seeded on a sphere, exponential decay plus noise); no 12-node rendezvous run exists in this repo. The real formation runs are 4, 6 and 8 nodes and are tabulated above.
+
+### Performance Dashboard (illustration)
+
+<p align="center">
+  <img src="assets/performance_dashboard.png" alt="Performance Dashboard" width="900"/>
+</p>
+
+**Design target, not a measurement** (see the status note at the end): On Raspberry Pi 4, the control loop alone consumes 18.5 ms of the 20 ms budget (50 Hz). The Snapdragon 8 Gen 3 leaves 17.9 ms headroom — enough to run topology computation (4.5 ms) and cryptographic attestation (2.3 ms) in the same cycle. This is why the hardware abstraction layer exists: the same Python code runs on both, but the Snapdragon unlocks real-time crypto and topology.
 
 ---
 
@@ -315,24 +340,21 @@ See DESIGN.md.
 ```
 skn-v1-/
   skn/                     core package
-    __init__.py
-    node.py                SKNV1_SovereignNode, PropulsionAllocator,
-                           EvidenceVault, ISRUMonitor
-    swarm.py               SwarmGossipProtocol
+    node.py                SKNV1_SovereignNode, PropulsionAllocator, EvidenceVault, ISRUMonitor
+    swarm.py               SwarmGossipProtocol (pose consensus)
+    topology.py            exact Betti numbers b0, b1 of the swarm (topology guard)
+    ccpl.py                ML-DSA-65 docking signatures
     simulation.py          rendezvous, formation, docking_chain, isru_operation
     simulation_v3.py       formation_v3
     geometric_policy.py    not imported by __init__; unused
-  scripts/
-    demo_formation.py
-  tests/
-    run_tests.py           15 tests
-  viz/skn_mission_control.html
-  assets/  concept/  frames/    images
-  build_skn.py             generator that emits the package
-  generate_assets.py  write_readme.py
-  demo_mission_control.py  skn_cinematic.py  skn_mission_control.py
-  skn_orbital_demo.py  skn_orbital_tui.py  sovereign_futuristic_demo.py
-  setup.py  pyproject.toml  requirements.txt  LICENSE
+  skn_orbital_tui.py       live terminal dashboard (real data)
+  scripts/                 demo_formation, demo_visual, bench_k1_k2, topology_guard_k1e, plot_formation_convergence
+  tests/run_tests.py       24 tests
+  docs/                    PREREG_2026-09-27.md, RESULTS_2026-09-27.md
+  assets/  concept/        images (see Illustrations for which are not results)
+  mockups/                 look-only dashboards with random data, labelled
+  legacy/                  old generators, kept
+  DESIGN.md  setup.py  pyproject.toml  requirements.txt  LICENSE
 ```
 
 Generated from git ls-tree. Vault, ISRU, docking and propulsion are classes
@@ -430,7 +452,7 @@ others are designed and described above but not yet implemented. This section is
 the honest boundary so you know what executes on a fresh clone. Visuals and the
 architecture narrative above describe the full **target** system.
 
-**Implemented and tested** (`python tests/run_tests.py` → 23/23 passing, 2026-09-27; 15/15 before):
+**Implemented and tested** (`python tests/run_tests.py` → 24/24 passing, 2026-09-27; 15/15 before):
 - Natural-gradient kinematic formation control — converges (tetrahedron to
   0.0000 m formation error over 300 steps; verified in `skn/simulation_v3.py`).
 - Propulsion allocator (HET + CMG) — output shape and actuator bounds tested.

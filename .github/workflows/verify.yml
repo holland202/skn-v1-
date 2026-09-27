@@ -16,7 +16,7 @@ jobs:
           python-version: '3.12'
       - name: install deps
         run: pip install numpy scipy matplotlib dilithium-py
-      - name: unit tests (23)
+      - name: unit tests (24)
         run: python3 tests/run_tests.py
       - name: the docking tests must not have been skipped
-        run: python3 tests/run_tests.py 2>&1 | grep -q "Ran 23 tests" && ! (python3 tests/run_tests.py 2>&1 | grep -q skipped)
+        run: python3 tests/run_tests.py 2>&1 | grep -q "Ran 24 tests" && ! (python3 tests/run_tests.py 2>&1 | grep -q skipped)

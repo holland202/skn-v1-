@@ -1,3 +1,5 @@
+# VISUAL MOCK-UP (labelled 2026-09-27): this script does not import the skn package. Every number it shows
+# is random or hard-coded for the look. For the real thing, run skn_orbital_tui.py or scripts/demo_visual.py.
 import time
 import sys
 import random

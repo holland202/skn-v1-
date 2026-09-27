@@ -175,5 +175,21 @@ class TestSignedDocking(unittest.TestCase):
             ccpl.ML_DSA_65 = saved
 
 
+class TestLiveDashboard(unittest.TestCase):
+    """skn_orbital_tui.py shows only computed values: run it headless and check them."""
+    def test_plain_frames_show_real_state(self):
+        import subprocess
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        p = subprocess.run([sys.executable, os.path.join(root, "skn_orbital_tui.py"), "--plain", "--frames", "101"],
+                           capture_output=True, text=True, timeout=600)
+        self.assertEqual(p.returncode, 0, p.stderr)
+        last = p.stdout.strip().split("[ SKN-V1")[-1]
+        self.assertIn("pieces b0 = 1", last)
+        self.assertIn("holes  b1 = 1", last)
+        self.assertIn("verify_chain OK", last)
+        from skn import ccpl
+        if ccpl.available():
+            self.assertEqual(last.count("sig VALID"), 6)
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
