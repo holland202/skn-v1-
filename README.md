@@ -1,5 +1,71 @@
 # SKN-V1 — Sovereign Kinematic Node
 
+<!-- 30s-demo -->
+> **Status labels.** **PROTOTYPE (simulation only):** formation control, topology guard, signed docking,
+> evidence chain. **DESIGN TARGET, NOT BUILT:** hardware, ROS2, flight software. **NOT PRODUCTION-READY:**
+> all of it. There is no hardware in this repository.
+
+**Headline (measured on a Galaxy S25, Termux):** one control step, including its evidence-chain commit,
+takes 0.047 ms. Signing a dock with post-quantum ML-DSA-65 takes 30.49 ms in pure Python (79.40 ms in an
+earlier run, so it varies). A tampered, wrong-key or replayed dock record is refused.
+
+### 30-second demo: PROTOTYPE, text only
+
+```bash
+git clone https://github.com/holland202/skn-v1-.git && cd skn-v1-
+pip install -e . dilithium-py && python scripts/demo_30s.py      # under 1 s after install
+```
+
+Output (x86_64, Python 3.11, 2026-09-30), pasted as printed:
+
+```
+ok  6 nodes -> ring in 300 steps: final formation error 3.05e-05 m (227 ms)
+ok  topology guard at r = 30 m: pieces b0 = 1, holes b1 = 1 (one ring)
+ok  same guard on 3 of the 6 nodes: b0 = 1, b1 = 0 (the ring is broken)
+ok  signed dock SKN-001 -> SKN-002 verified (keygen + sign 81 ms)
+ok  target changed, digest recomputed: refused (signature does not verify)
+ok  another node's key: refused (record names a different public key)
+ok  same nonce replayed: refused (nonce already seen (replay))
+ok  evidence chain: 11 SHA3-512 records verify
+ok  two records swapped: chain refuses
+DEMO PASS
+```
+
+The first version of this demo printed `BAD` on line 2. It read the swarm's positions from step 0
+instead of the last step, so the guard saw 4 scattered pieces. The demo exits nonzero on any `BAD`;
+that is how the bug was caught before it reached this page.
+
+### Negative results and gaps, up front
+
+- **No hardware:** no firmware, no serial code, no Pi. The deep-space target is a design, not a result.
+- **Physics gaps:** the "natural gradient" metric is currently the identity, the thrusters cannot push
+  in −z, and actuator limits are not fed back into motion (open experiment K3).
+- **The dashboards in `mockups/` use random data** and are labelled as such. `skn_orbital_tui.py` is
+  the live one.
+
+```mermaid
+flowchart LR
+  F[Formation control<br/>consensus to target shape] --> T{Topology guard<br/>exact b0, b1 at comm radius}
+  T -->|one piece, ring closed| D[Dock request]
+  D --> S[ML-DSA-65 signed manifest<br/>SHA3-512 digest, nonce]
+  S --> V{verify_dock}
+  V -->|valid| L[LOCK]
+  V -->|tampered / wrong key / replay| X[refused]
+  F & L --> E[(SHA3-512 evidence chain<br/>detects edits, forgery, reordering)]
+```
+
+### Why this is not just ROS formation control, signing, or logging
+
+- **The formation controller is textbook consensus.** No novelty is claimed there.
+- **The topology guard computes exact Betti numbers** (pieces and holes) of the swarm's communication
+  complex. It replaced a graph cycle count (E − V + C) that reported 3 holes in a filled tetrahedron, which has none (K1b). It is checked
+  against a reference on 200 random point clouds.
+- **Signing alone would not refuse a replay.** The dock verifier also tracks nonces, so a genuine record
+  sent twice is refused (line 7 above).
+- **The value is the combination, measured on a phone.** Each piece alone is standard.
+<!-- /30s-demo -->
+
+
 <p align="center">
   <a href="https://github.com/holland202/skn-v1-/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/python-3.9%2B-blue" alt="Python 3.9+">
