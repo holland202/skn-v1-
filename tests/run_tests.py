@@ -46,6 +46,13 @@ class TestEvidenceVault(unittest.TestCase):
         r = self.vault._records
         r[3], r[4] = r[4], r[3]
         self.assertFalse(self.vault.verify_chain())
+    def test_window_past_256_verifies(self):
+        # K4 (2026-10-05): an honest vault with more than 256 commits used to fail its own check
+        for i in range(300): self.vault.commit(np.array([float(i)]*6, np.float32), {"i": i})
+        self.assertEqual(self.vault.chain_length, 256)
+        self.assertTrue(self.vault.verify_chain())
+        self.vault._records[10]["hash"] = b"\x11" * 64
+        self.assertFalse(self.vault.verify_chain())
 
 class TestISRUMonitor(unittest.TestCase):
     def setUp(self):

@@ -55,6 +55,9 @@ class EvidenceVault:
         self._chain: List[bytes] = []
         self._records: List[dict] = []   # preimages for real re-verification
         self._prev_hash: bytes = b'\x00' * 64
+        # prev of the oldest RETAINED record. Starts at genesis; moves when old records are dropped
+        # (K4, 2026-10-05). Dropped records cannot be re-verified by anyone.
+        self._anchor: bytes = b'\x00' * 64
         self._vault_path = vault_path
 
     def commit(self, state_vector: np.ndarray, metadata: dict = None) -> bytes:
@@ -73,6 +76,7 @@ class EvidenceVault:
         if len(self._chain) > 256:
             self._chain = self._chain[-256:]
             self._records = self._records[-256:]
+            self._anchor = self._records[0]["prev"]
         return h
 
     def verify_chain(self) -> bool:
@@ -81,7 +85,9 @@ class EvidenceVault:
         # equals the previous link's hash. Any edit to any state, metadata, hash,
         # or ordering breaks the chain and returns False. The old version returned
         # `len(self._chain) >= 0`, which is ALWAYS true and verified nothing.
-        expected_prev = b"\x00" * 64
+        # Start from the anchor, not genesis: before K4 (2026-10-05) an untampered vault with more than
+        # 256 commits failed here, because the retained window no longer starts at genesis.
+        expected_prev = self._anchor
         for rec in self._records:
             if rec["prev"] != expected_prev:
                 return False
