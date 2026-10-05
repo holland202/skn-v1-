@@ -24,7 +24,7 @@ sys.path.insert(0, ROOT)
 from skn import ccpl  # noqa: E402
 
 BASE = "ee573a3"
-RECORDED = None
+RECORDED = (("K8a", "K8b", "K8c", "K8d"), "1e63fef0914ae1a2b271edd3dc446abf5fe7e3780b07caeda34a1b5c0a1d4f21")
 
 
 def base_ccpl():
