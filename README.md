@@ -503,6 +503,9 @@ the four withdrawn claims above word for word, directly under their withdrawal):
    option a node never descended on any of 50 targets (K3). The paired option fixes this with 12
    thrusters; adopting it is an open design decision.
 8. **No noise, delay or packet loss is simulated.** The 10⁻⁵ m formation errors are for an ideal loop.
+9. **Dock replay protection lives in memory.** `verify_dock` refuses a repeated nonce only if the caller
+   passes the same `seen_nonces` set; the set is not persisted, so a genuine record replayed after a
+   restart verifies again (added 2026-10-05).
 
 ---
 
