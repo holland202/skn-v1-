@@ -1,0 +1,12 @@
+K4 | registered run | python 3.13.16
+  V1 legacy vault, 257 commits: verify_chain False
+  V2 fixed vault: {10: True, 256: True, 257: True, 1000: True}
+  V3 tampering at 1000 commits, verify_chain per attack: {'edit preimage': False, 'swap two records': False, 'replace a hash': False}
+  V4 altered anchor at 1000 commits: verify_chain False
+  V5 node after 300 steps: verify_chain True, chain_length 256
+  V1  HELD
+  V2  HELD
+  V3  HELD
+  V4  HELD
+  V5  HELD
+VERDICT 5 of 5 as registered (V6 is --sabotage)

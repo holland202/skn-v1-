@@ -110,7 +110,7 @@ SKN-V1 is a software-defined swarm robotics framework that runs on anything from
 | **Natural Gradient Kinematic Control** | SE(3) pose tracking on the Fisher-Rao information manifold | Intended to replace Euclidean gradient descent with Riemannian natural gradients. MEASURED: the metric is currently a scalar multiple of the identity, so the step is Euclidean in direction. See Natural Gradient on SE(3) below |
 | **Riemannian Gossip Consensus** | KL-divergence minimization with adaptive Fisher metrics | *Measured against the code (2026-09-27):* `gossip_step` averages neighbour **poses**, weighted by each node's Fisher metric, which is isotropic (section 1). It is Laplacian consensus on poses; no belief distributions and no KL are computed. See section 2 |
 | **C-CPL Docking** *(built, signed, 2026-09-27)* | ML-DSA-65 (FIPS 204) signature over SHA3-512 of the manifest, via the pure-Python reference `dilithium-py` | Docking locks only with a signature, and fails closed without the library. `skn.ccpl.verify_dock` checks the record, the key and the nonce. Not side-channel hardened. See section 3 |
-| **Evidence Vault** | SHA3-512 tamper-evident hash chain with per-state attestation | Every state transition is hashed, chained, and attested; Merkle roots enable O(log n) verification |
+| **Evidence Vault** | SHA3-512 tamper-evident hash chain with per-state attestation | Every state transition is hashed and chained; `verify_chain` walks the retained window (newest 256 records) linearly. No Merkle tree exists (corrected 2026-10-05) |
 | **ISRU Monitor** | Gibbs free energy filtering for resource extraction | Bayesian update of P(ore \| sensor data) using thermodynamic priors; threshold at ΔG < −50 kJ/mol |
 | **Betti-1 Topology Guard** *(built, 2026-09-27)* | Exact β₀ and β₁ of the Vietoris-Rips complex over GF(2), pure NumPy (`skn/topology.py`) | Fragmentation is β₀ > 1; a coverage hole is β₁ > 0. Replaces a graph cycle count that called every triangle a hole (section 4) |
 | **ROS2 Bridge** *(not built)* | Standard ROS2 Humble topic/service API | Exposes `/swarm/pose_array`, `/skn/dock_request`, and diagnostic topics with QoS `reliable, depth 10` |
@@ -139,7 +139,7 @@ two mission-control scripts in the repo root render matplotlib animation frames;
 there is no WebSocket server and no live dashboard.
 
 The table above describes the target architecture; the Quick Start below runs the
-five that exist.
+seven that exist (corrected 2026-10-05: this line said five after the status above changed to seven).
 
 ---
 
@@ -153,7 +153,7 @@ cd skn-v1-
 # Install (editable, for development)
 pip install -e .
 
-# Run tests (24 tests, all passing; the docking tests need `pip install dilithium-py`)
+# Run tests (25 tests, all passing; the docking tests need `pip install dilithium-py`)
 python tests/run_tests.py
 
 # Run demos
@@ -415,8 +415,9 @@ skn-v1-/
     geometric_policy.py    not imported by __init__; unused
   skn_orbital_tui.py       live terminal dashboard (real data)
   scripts/                 demo_formation, demo_visual, bench_k1_k2, topology_guard_k1e, plot_formation_convergence
-  tests/run_tests.py       24 tests
-  docs/                    PREREG_2026-09-27.md, RESULTS_2026-09-27.md
+  tests/run_tests.py       25 tests
+  docs/                    PREREG/RESULTS 2026-09-27 and 2026-10-05
+  experiments/partition_veritas/  separate research experiment (its own PREREGISTRATION.md)
   assets/  concept/        images (see Illustrations for which are not results)
   mockups/                 look-only dashboards with random data, labelled
   legacy/                  old generators, kept
@@ -425,7 +426,8 @@ skn-v1-/
 
 Generated from git ls-tree. Vault, ISRU, docking and propulsion are classes
 inside node.py, not separate modules. Betti numbers are in topology.py (used by swarm.py); docking signatures in ccpl.py. There
-is no docs/, launch/, config/ or firmware/ directory, and no ros2_bridge.py.
+is no launch/, config/ or firmware/ directory, and no ros2_bridge.py. (Corrected 2026-10-05: this
+sentence also said there was no docs/ directory, two lines under the docs/ entry above.)
 
 ---
 
@@ -435,13 +437,12 @@ is no docs/, launch/, config/ or firmware/ directory, and no ros2_bridge.py.
 numpy>=1.24.0
 scipy>=1.10.0
 matplotlib>=3.7.0
-gudhi>=3.8.0          # Persistent homology (optional, for topology)
-ripser>=0.6.4         # Fast barcode computation (optional)
-ros-humble-rclpy      # ROS2 Humble (optional, for ROS2 bridge)
-websockets>=11.0      # Mission control dashboard (optional)
+dilithium-py>=1.4.0   # C-CPL docking signatures; docking fails closed without it
 ```
 
-Core functionality requires only `numpy` and `scipy`. All other dependencies are optional and loaded lazily.
+These are the four in `requirements.txt` and `pyproject.toml`. Corrected 2026-10-05: this list used to
+name gudhi, ripser, ros-humble-rclpy and websockets as optional dependencies. None is imported anywhere;
+the topology guard is pure NumPy, and the ROS2 bridge and web dashboard are not built.
 
 ---
 
@@ -479,6 +480,12 @@ the four withdrawn claims above word for word, directly under their withdrawal):
    persistence barcode), O(n³) triangles: 8.93 ms at n = 64 on the container.
 4. **ISRU Monitor uses synthetic thermodynamic data.** The priors are placeholders.
 5. **Gossip is pose consensus.** See section 2.
+6. **The evidence vault keeps only the newest 256 records, in memory.** Older records are dropped and
+   cannot be re-checked; `vault_path` is stored but nothing is written to it; `chain_length` is the
+   retained count, not the total. Until 2026-10-05 an honest vault with more than 256 records failed its
+   own `verify_chain()` (so any node run longer than about 255 steps reported BROKEN); fixed and tested in
+   K4 (docs/PREREG_2026-10-05.md, docs/RESULTS_2026-10-05.md). An unkeyed hash chain can still be rewritten
+   end to end: tamper-evident against partial edits, not tamper-proof.
 
 ---
 
@@ -518,7 +525,7 @@ others are designed and described above but not yet implemented. This section is
 the honest boundary so you know what executes on a fresh clone. Visuals and the
 architecture narrative above describe the full **target** system.
 
-**Implemented and tested** (`python tests/run_tests.py` → 24/24 passing, 2026-09-27; 15/15 before):
+**Implemented and tested** (`python tests/run_tests.py` → 25/25 passing, 2026-10-05; 24/24 on 2026-09-27; 15/15 before):
 - Natural-gradient kinematic formation control — converges (tetrahedron to
   0.0000 m formation error over 300 steps; verified in `skn/simulation_v3.py`).
 - Propulsion allocator (HET + CMG) — output shape and actuator bounds tested.
@@ -543,6 +550,6 @@ flashing, not built. Demo scripts: only `scripts/demo_formation.py` exists today
 The performance-dashboard timings (RPi4 / Snapdragon budgets) are design targets
 for the full system, not measured benchmarks of the current code.
 
-*Vincit Omnia Veritas — the vision is nine subsystems; today five run and are
+*Vincit Omnia Veritas — the vision is nine subsystems; today seven run and are
 tested, and this note says so plainly rather than letting the Quick Start fail
 silently.*

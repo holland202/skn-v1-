@@ -11,12 +11,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - name: install deps
         run: pip install numpy scipy matplotlib dilithium-py
-      - name: unit tests (24)
+      - name: unit tests (25)
         run: python3 tests/run_tests.py
       - name: the docking tests must not have been skipped
-        run: python3 tests/run_tests.py 2>&1 | grep -q "Ran 24 tests" && ! (python3 tests/run_tests.py 2>&1 | grep -q skipped)
+        run: python3 tests/run_tests.py 2>&1 | grep -q "Ran 25 tests" && ! (python3 tests/run_tests.py 2>&1 | grep -q skipped)
+      - name: K4 vault window (docs/PREREG_2026-10-05.md)
+        run: python3 scripts/k4_vault_window.py
+      - name: K4 sabotage must exit 1
+        run: |
+          if python3 scripts/k4_vault_window.py --sabotage > /dev/null; then echo "sabotage passed: probe is vacuous"; exit 1; fi

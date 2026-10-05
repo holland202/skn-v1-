@@ -1,0 +1,12 @@
+K4 | SABOTAGE: verify_chain starts from genesis | python 3.13.16
+  V1 legacy vault, 257 commits: verify_chain False
+  V2 fixed vault: {10: True, 256: True, 257: False, 1000: False}
+  V3 tampering at 1000 commits, verify_chain per attack: {'edit preimage': False, 'swap two records': False, 'replace a hash': False}
+  V4 altered anchor at 1000 commits: verify_chain False
+  V5 node after 300 steps: verify_chain False, chain_length 256
+  V1  HELD
+  V2  REFUTED
+  V3  HELD
+  V4  HELD
+  V5  REFUTED
+VERDICT 3 of 5 as registered (V6 is --sabotage)
