@@ -20,7 +20,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 from skn.node import EvidenceVault  # noqa: E402
 
-RECORDED = None
+RECORDED = (("K6a", "K6b", "K6c", "K6d", "K6e", "K6f"), "53182a1fea8d32e923b92b76895674a5c0c9f06e5c95c70226ca292fce7d65d6")
 
 
 def fill(v, n, start=0):

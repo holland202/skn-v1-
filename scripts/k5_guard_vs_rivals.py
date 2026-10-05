@@ -18,7 +18,7 @@ sys.path.insert(0, ROOT)
 import skn.topology as topo  # noqa: E402
 
 R = 30.0
-RECORDED = None
+RECORDED = (("K5a", "K5b", "K5c", "K5d"), "1a1f89893705db7da7399192967889d9ef46b223464c111494d62663493d1acd")
 
 
 def ring():

@@ -23,7 +23,7 @@ import skn.node as node_mod  # noqa: E402
 from skn.node import PropulsionAllocator, SKNV1_SovereignNode  # noqa: E402
 
 BASE = "7510e5b"
-RECORDED = None
+RECORDED = (("K3a", "K3b", "K3c", "K3d", "K3e", "K3f"), "04c0830e061ebd00553a9e59211cb06d13a456bbcba592574f28a27f2e4afe93")
 
 
 def base_node_class():
