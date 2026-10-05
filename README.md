@@ -35,6 +35,9 @@ The first version of this demo printed `BAD` on line 2. It read the swarm's posi
 instead of the last step, so the guard saw 4 scattered pieces. The demo exits nonzero on any `BAD`;
 that is how the bug was caught before it reached this page.
 
+**Try to break it:** [CHALLENGE.md](CHALLENGE.md) lists four targets, what is already known, and who controls
+the baseline, dependencies, runner and duplicate decisions.
+
 ### Negative results and gaps, up front
 
 - **No hardware:** no firmware, no serial code, no Pi. The deep-space target is a design, not a result.
@@ -427,7 +430,8 @@ skn-v1-/
   scripts/                 demo_formation, demo_visual, bench_k1_k2, topology_guard_k1e, plot_formation_convergence,
                            k3_closed_loop, k4_vault_window, k5_guard_vs_rivals, k6_vault_file (registered harnesses)
   tests/run_tests.py       29 tests
-  docs/                    PREREG/RESULTS 2026-09-27, 2026-10-05 and 2026-10-05b
+  docs/                    PREREG/RESULTS 2026-09-27, 2026-10-05 and 2026-10-05b; external/ (outside input, verbatim); findings/
+  CHALLENGE.md             the open challenge: targets, known limits, who controls what
   experiments/partition_veritas/  separate research experiment (its own PREREGISTRATION.md)
   assets/  concept/        images (see Illustrations for which are not results)
   mockups/                 look-only dashboards with random data, labelled
