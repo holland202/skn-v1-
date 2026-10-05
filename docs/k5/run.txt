@@ -1,0 +1,15 @@
+K5 | registered run | python 3.13.16
+  K5a 500 random clouds: b0 = Laplacian nullity = union-find, and m>0 <=> b0=1, in 500 of 500
+  K5b D1 radial: first b0>1 at 145; first lam2 change at 145; first b1 change at 145
+      margin m: step0 10.0000 step100 3.5425 step144 0.0774 step145 -0.0042; strictly decreasing 0..145: True
+      weighted lam2: step0 0.333333 step144 6.175e-03 step145 4.818e-17; non-increasing: True
+      step-100 extrapolation of m predicts fragmentation at step 146.9
+  K5c D2 sideways: b1 1->0 at 110; lam2 1 -> 0.267949 at 110; first b0>1 at 457
+      margin m = 10 for steps 0..346: True; step347 9.9489; step456 0.0045; step457 -0.0898
+  K5d static ring, 500 steps: every signal constant: True
+  K5a  HELD
+  K5b  HELD
+  K5c  HELD
+  K5d  HELD
+VERDICT 4 of 4 as registered (K5e is --sabotage)
+DIGEST 1a1f89893705db7da7399192967889d9ef46b223464c111494d62663493d1acd

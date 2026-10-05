@@ -6,6 +6,8 @@ Full software implementation of the Sovereign Kinematic Node.
 
 import numpy as np
 import hashlib
+import json
+import os
 import time
 import logging
 from typing import Optional, Dict, Tuple, List
@@ -16,8 +18,18 @@ logger = logging.getLogger("skn.node")
 class PropulsionAllocator:
     """Map SE(3) velocity commands to HET + CMG actuator commands."""
 
-    def __init__(self, num_hets: int = 6, cmg_saturation: float = 0.95):
-        self.num_hets = num_hets
+    GEOMETRIES = ("legacy", "paired")
+
+    def __init__(self, num_hets: int = 6, cmg_saturation: float = 0.95, geometry: str = "legacy",
+                 clip: bool = True):
+        """geometry "legacy": num_hets HETs, every one tilted +0.3 in z, so no command can push -z.
+        geometry "paired" (K3, 2026-10-05): the same azimuths twice, tilted +0.3 and -0.3 in z
+        (2 * num_hets HETs), so -z is realizable. clip=False disables HET/CMG limits (test use only)."""
+        if geometry not in self.GEOMETRIES:
+            raise ValueError(f"geometry must be one of {self.GEOMETRIES}")
+        self.geometry = geometry
+        self.clip = clip
+        self.num_hets = num_hets * (2 if geometry == "paired" else 1)
         self.cmg_saturation = cmg_saturation
         self.max_thrust = 0.025
         self.isp = 2000.0
@@ -25,10 +37,14 @@ class PropulsionAllocator:
         self.B_inv = np.linalg.pinv(self.B)
 
     def _build_allocation_matrix(self, n_hets: int) -> np.ndarray:
-        B = np.zeros((6, n_hets + 3))
+        tilts = (0.3, -0.3) if self.geometry == "paired" else (0.3,)
+        B = np.zeros((6, n_hets * len(tilts) + 3))
         angles = np.linspace(0, 2 * np.pi, n_hets, endpoint=False)
-        for i, a in enumerate(angles):
-            B[0:3, i] = [np.cos(a), np.sin(a), 0.3]
+        col = 0
+        for tz in tilts:
+            for a in angles:
+                B[0:3, col] = [np.cos(a), np.sin(a), tz]
+                col += 1
         B[3:6, -3:] = np.eye(3)
         return B
 
@@ -37,9 +53,16 @@ class PropulsionAllocator:
         mass_scale = 1.0 / np.cbrt(max(current_mass, 0.1))
         u *= mass_scale
         n_het = self.num_hets
-        u[:n_het] = np.clip(u[:n_het], 0.0, 1.0)
-        u[-3:] = np.clip(u[-3:], -self.cmg_saturation, self.cmg_saturation)
+        if self.clip:
+            u[:n_het] = np.clip(u[:n_het], 0.0, 1.0)
+            u[-3:] = np.clip(u[-3:], -self.cmg_saturation, self.cmg_saturation)
         return u.astype(np.float32)
+
+    def realize(self, u: np.ndarray, current_mass: float = 1.0) -> np.ndarray:
+        """The 6-DOF command the actuators actually produce: B u, with allocate()'s mass scaling undone,
+        so an unclipped u reproduces the command exactly (K3)."""
+        mass_scale = 1.0 / np.cbrt(max(current_mass, 0.1))
+        return (self.B @ u.astype(np.float64) / mass_scale).astype(np.float32)
 
     def desaturate_cmg(self, u: np.ndarray) -> np.ndarray:
         k_desat = np.zeros(self.B.shape[1])
@@ -59,6 +82,14 @@ class EvidenceVault:
         # (K4, 2026-10-05). Dropped records cannot be re-verified by anyone.
         self._anchor: bytes = b'\x00' * 64
         self._vault_path = vault_path
+        # K6 (2026-10-05): with a path, every record is appended to a JSONL file, so records dropped from the
+        # 256-record window stay checkable. An existing file is verified first and the chain continues from
+        # it; a file that does not verify is refused (fail closed). The file is not signed (see README).
+        if vault_path is not None and os.path.exists(vault_path) and os.path.getsize(vault_path) > 0:
+            ok, last = self._walk_file(vault_path, check_hashes=True)
+            if not ok:
+                raise ValueError(f"evidence vault file {vault_path} does not verify; refusing to extend it")
+            self._prev_hash = self._anchor = last
 
     def commit(self, state_vector: np.ndarray, metadata: dict = None) -> bytes:
         # Store the exact preimage bytes so the chain can be RE-VERIFIED later
@@ -73,6 +104,11 @@ class EvidenceVault:
         self._records.append({"preimage": s_bytes, "prev": self._prev_hash, "hash": h})
         self._chain.append(h)
         self._prev_hash = h
+        if self._vault_path is not None:
+            with open(self._vault_path, "a") as fh:
+                fh.write(json.dumps({"preimage": s_bytes.hex(), "prev": self._records[-1]["prev"].hex(),
+                                     "hash": h.hex()}) + "\n")
+                fh.flush()
         if len(self._chain) > 256:
             self._chain = self._chain[-256:]
             self._records = self._records[-256:]
@@ -95,6 +131,30 @@ class EvidenceVault:
                 return False
             expected_prev = rec["hash"]
         return True
+
+    @staticmethod
+    def _walk_file(path: str, check_hashes: bool = True) -> Tuple[bool, bytes]:
+        expected_prev = b'\x00' * 64
+        try:
+            with open(path) as fh:
+                for line in fh:
+                    rec = json.loads(line)
+                    pre, prev, h = (bytes.fromhex(rec[k]) for k in ("preimage", "prev", "hash"))
+                    if prev != expected_prev:
+                        return False, expected_prev
+                    if check_hashes and hashlib.sha3_512(pre + prev).digest() != h:
+                        return False, expected_prev
+                    expected_prev = h
+        except (OSError, ValueError, KeyError, TypeError):
+            return False, expected_prev
+        return True, expected_prev
+
+    @staticmethod
+    def verify_file(path: str) -> bool:
+        """Walk a vault file from the all-zero genesis, recomputing every hash (K6). Detects edits, deletions
+        and reordering anywhere in the file. Does NOT detect removal of the newest lines (tail truncation), and
+        cannot detect a consistent rewrite of the whole file: the chain is unkeyed."""
+        return EvidenceVault._walk_file(path, check_hashes=True)[0]
 
     @property
     def chain_length(self) -> int:
@@ -150,8 +210,12 @@ class SKNV1_SovereignNode:
     """SKN-V1 Sovereign Kinematic Node — complete implementation."""
 
     def __init__(self, node_id: str, initial_pose: Optional[np.ndarray] = None,
-                 slc_instance=None, vault_path: Optional[str] = None):
+                 slc_instance=None, vault_path: Optional[str] = None,
+                 closed_loop: bool = False, thruster_geometry: str = "legacy"):
+        """closed_loop=True (K3, 2026-10-05): the pose moves by what the thrusters realize, not by the command.
+        Defaults (open loop, legacy thrusters) are unchanged; which SKN should use is an open design decision."""
         self.node_id = node_id
+        self.closed_loop = closed_loop
         self.pose = (initial_pose.astype(np.float32).copy()
                      if initial_pose is not None
                      else np.zeros(6, dtype=np.float32))
@@ -160,7 +224,7 @@ class SKNV1_SovereignNode:
         self.current_mass = 1.0
         self.inertia_tensor = np.eye(3, dtype=np.float32)
         self.c_cpl_locked = False
-        self.propulsion = PropulsionAllocator()
+        self.propulsion = PropulsionAllocator(geometry=thruster_geometry)
         self.vault = EvidenceVault(vault_path)
         self.isru = ISRUMonitor()
         self.slc = slc_instance
@@ -193,10 +257,11 @@ class SKNV1_SovereignNode:
         dist = float(np.linalg.norm(self.pose[:3] - target[:3]))
         self.update_fisher_metric(dist)
         grad = self.calculate_natural_gradient(target)
-        self.velocity = grad
-        self.pose += grad * dt
-        self._step_count += 1
         actuator_cmds = self.propulsion.allocate(grad, self.current_mass)
+        move = self.propulsion.realize(actuator_cmds, self.current_mass) if self.closed_loop else grad
+        self.velocity = move
+        self.pose += move * dt
+        self._step_count += 1
         h = self.vault.commit(self.pose, {
             "step": self._step_count, "dist": dist, "node": self.node_id
         })
