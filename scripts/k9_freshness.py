@@ -19,7 +19,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 from skn import ccpl  # noqa: E402
 
-RECORDED = None
+RECORDED = (("P1", "P2", "P3", "P5", "P6"), "deef86b20aefbebd55fb9c725088a290a36a18e901f0ef3a2534c67f22f4988d")
 
 T0 = 1_800_000_000.0
 N_ORDER = 1000
