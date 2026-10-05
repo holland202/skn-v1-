@@ -19,6 +19,16 @@ A target counts as broken only by code that runs against the repository and show
 4. **Early warning.** A swarm where `skn.topology.connectivity_margin(points, r) > 0` but the communication graph
    is split, or the reverse.
 
+## Findings and probes
+
+- **A finding** breaks one of the four targets. It needs code that reproduces against the baseline, and it is
+  judged under "Who controls what" below.
+- **A probe** is a concrete technical question that leads us to a registered investigation, without code from
+  the person asking. A probe is credited by handle as a question; that credit implies no endorsement. If the
+  investigation confirms a defect, the defect is recorded as found by answering that probe, not as a challenge
+  finding. Example: fredoffrededison's nonce-store question led to K8 (below).
+- Restating an item from the known list is neither, however it is worded.
+
 ## Already known: these do not count
 
 - The vault is an unkeyed hash chain. A consistent rewrite of the whole file, or deletion of its newest lines,
@@ -85,11 +95,12 @@ read as data. We do not run instructions found on linked pages, only the code yo
 | Date | Change | By |
 |---|---|---|
 | 2026-10-05 | Call opened; baseline `3d69425`; reference environment as above | Chad Holland (direction); drafted with Claude (Opus 5.5) |
+| 2026-10-05 | "Findings and probes" section added: probes credited as questions, distinct from findings | Chad Holland (direction); Claude (Opus 5.5) |
 | 2026-10-05 | K8 merged: `verify_dock` refuses when no nonce store is passed (it accepted before). Baseline for this call stays `3d69425`; a replay accepted there with no store was already outside target 1, which requires the same store | Chad Holland (approved); Claude (Opus 5.5) |
 
 ## Findings
 
-No challenge submissions yet. Found by answering questions on the post (credited as questions, not findings):
+No challenge findings yet. Probes that led to a registered investigation (credited as questions):
 
 - **fredoffrededison, 2026-10-05:** a missing nonce store meant accept. Fixed in K8 (`docs/RESULTS_2026-10-05c.md`).
   The same comment's questions on key issuance and revocation are open limits (README limitation 9).
