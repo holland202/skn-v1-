@@ -56,13 +56,13 @@ def device():
 def dock_ring(P):
     """Dock each node to its ring neighbour with ML-DSA-65; returns (log lines, nodes)."""
     nodes = [SKNV1_SovereignNode(f"SKN-{i:03d}", np.r_[P[i], np.zeros(3)].astype(np.float32)) for i in range(len(P))]
-    log = []
+    log, seen = [], set()
     if not ccpl.available():
         return ["ML-DSA-65 unavailable (pip install dilithium-py): docking fails closed, no locks"], nodes
     for i, a in enumerate(nodes):
         b = nodes[(i + 1) % len(nodes)]
         ok, detail = a.ccpl_initiate_dock(b.node_id, np.eye(3, dtype=np.float32), np.full(3, 0.2, np.float32))
-        good = ccpl.verify_dock(a.last_dock_record, a.dock_public_key)[0] if ok else False
+        good = ccpl.verify_dock(a.last_dock_record, a.dock_public_key, seen)[0] if ok else False
         log.append(f"{a.node_id}->{b.node_id} {'LOCK' if ok else 'NO LOCK'}  sig {'VALID' if good else 'INVALID'}  {detail[:12]}")
     return log, nodes
 

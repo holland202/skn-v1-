@@ -26,6 +26,6 @@ if ccpl.available():
     m = ccpl.make_manifest("A", "B", np.zeros(6), np.eye(3).ravel(), np.zeros(3))
     rec = ccpl.sign_manifest(m, pk, sk)
     print(f"ML-DSA-65 keygen {med(ccpl.keygen, 5):.2f} ms, sign {med(lambda: ccpl.sign_manifest(m, pk, sk), 5):.2f} ms, "
-          f"verify {med(lambda: ccpl.verify_dock(rec, pk), 5):.2f} ms  (dilithium-py, pure Python)")
+          f"verify {med(lambda: ccpl.verify_dock(rec, pk, set()), 5):.2f} ms  (dilithium-py, pure Python; fresh nonce set per call)")
 else:
     print("ML-DSA-65: dilithium-py not installed")

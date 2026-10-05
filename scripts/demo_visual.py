@@ -50,8 +50,8 @@ def dock_story():
     seen = set()
     genuine = ccpl.verify_dock(rec, pk, seen)
     bad = copy.deepcopy(rec); bad["manifest"]["target_id"] = "SKN-666"
-    tamper = ccpl.verify_dock(bad, pk)
-    wrongkey = ccpl.verify_dock(rec, b.dock_public_key)
+    tamper = ccpl.verify_dock(bad, pk, seen)
+    wrongkey = ccpl.verify_dock(rec, b.dock_public_key, seen)
     replay = ccpl.verify_dock(rec, pk, seen)
     return [
         f"SKN-001 -> SKN-002  locked={ok}",

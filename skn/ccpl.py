@@ -20,6 +20,7 @@ except ImportError:  # fail closed, see sign_manifest
     ML_DSA_65 = None
 
 UNAVAILABLE = "ML-DSA-65 unavailable (pip install dilithium-py)"
+NO_STORE = "no nonce store: replay cannot be checked (fail closed)"
 
 
 def available():
@@ -56,7 +57,9 @@ def sign_manifest(manifest, public_key, secret_key):
 
 
 def verify_dock(record, public_key, seen_nonces=None):
-    """(ok, why). seen_nonces: a set the caller keeps; a verified nonce is added, a repeat is refused."""
+    """(ok, why). seen_nonces: a set the caller keeps; a verified nonce is added, a repeat is refused.
+    Without a store the record is refused (K8), after the integrity checks so their reasons are unchanged.
+    The store is in memory and kept by the caller: a fresh set per call, or a restart, forgets every nonce."""
     if ML_DSA_65 is None:
         return False, UNAVAILABLE
     try:
@@ -68,10 +71,13 @@ def verify_dock(record, public_key, seen_nonces=None):
             return False, "record names a different public key"
         if not ML_DSA_65.verify(public_key, digest, bytes.fromhex(record["signature"])):
             return False, "signature does not verify"
-        if seen_nonces is not None:
-            if manifest["nonce"] in seen_nonces:
-                return False, "nonce already seen (replay)"
-            seen_nonces.add(manifest["nonce"])
+        # K8 (2026-10-05): without a store the replay check cannot run, so refuse. Before K8 a missing store
+        # (the default) skipped the check and accepted the same record every time (fail-open).
+        if seen_nonces is None:
+            return False, NO_STORE
+        if manifest["nonce"] in seen_nonces:
+            return False, "nonce already seen (replay)"
+        seen_nonces.add(manifest["nonce"])
     except (KeyError, TypeError, ValueError) as exc:
         return False, f"malformed record: {type(exc).__name__}"
     return True, "ML-DSA-65 signature valid"

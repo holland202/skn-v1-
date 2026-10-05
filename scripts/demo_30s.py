@@ -46,9 +46,9 @@ else:
     line(locked and ccpl.verify_dock(rec, pk, seen)[0], f"signed dock SKN-001 -> SKN-002 verified (keygen + sign {ms:.0f} ms)")
     bad = copy.deepcopy(rec); bad["manifest"]["target_id"] = "SKN-666"
     bad["manifest_sha3_512"] = hashlib.sha3_512(ccpl.canonical(bad["manifest"])).hexdigest()
-    res = ccpl.verify_dock(bad, pk)
+    res = ccpl.verify_dock(bad, pk, seen)
     line(not res[0], f"target changed, digest recomputed: refused ({res[1]})")
-    res = ccpl.verify_dock(rec, b.dock_public_key)
+    res = ccpl.verify_dock(rec, b.dock_public_key, seen)
     line(not res[0], f"another node's key: refused ({res[1]})")
     res = ccpl.verify_dock(rec, pk, seen)
     line(not res[0], f"same nonce replayed: refused ({res[1]})")
