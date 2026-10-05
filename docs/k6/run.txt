@@ -1,0 +1,15 @@
+K6 | registered run | python 3.13.16
+  K6a 1000 commits: file lines 1000, verify_file True
+  K6b preimage edited on line 10: verify_file False; in-memory verify_chain True (memory holds the newest 256)
+  K6c line 500 deleted: verify_file False; lines 300/301 swapped: verify_file False
+  K6d last line deleted (tail truncation): verify_file True  <- registered as NOT detected
+  K6e resumed vault +500: file lines 1500, verify_file True, verify_chain True; opening the tampered file refused: True
+  K6f no path, 300 commits: new files created [], verify_chain True
+  K6a  HELD
+  K6b  HELD
+  K6c  HELD
+  K6d  HELD
+  K6e  HELD
+  K6f  HELD
+VERDICT 6 of 6 as registered (K6g is --sabotage; K6f's 'existing tests pass' is CI)
+DIGEST 53182a1fea8d32e923b92b76895674a5c0c9f06e5c95c70226ca292fce7d65d6

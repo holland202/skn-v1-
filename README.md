@@ -38,8 +38,13 @@ that is how the bug was caught before it reached this page.
 ### Negative results and gaps, up front
 
 - **No hardware:** no firmware, no serial code, no Pi. The deep-space target is a design, not a result.
-- **Physics gaps:** the "natural gradient" metric is currently the identity, the thrusters cannot push
-  in −z, and actuator limits are not fed back into motion (open experiment K3).
+- **Physics gaps:** the "natural gradient" metric is currently the identity. With the default thrusters
+  the node cannot push in −z: closing the loop through them (K3, 2026-10-05) showed a node never once
+  descends. A mirrored 12-thruster option and a closed-loop option now exist; the defaults are unchanged
+  and which to use is an open design decision (`docs/RESULTS_2026-10-05b.md`).
+- **The topology guard's β₀ is the textbook check.** It equals the graph Laplacian's zero-eigenvalue count
+  on 500 of 500 random swarms, and it gives no warning before a break. The standard MST connectivity margin
+  does (K5).
 - **The dashboards in `mockups/` use random data** and are labelled as such. `skn_orbital_tui.py` is
   the live one.
 
@@ -58,7 +63,9 @@ flowchart LR
 
 - **The formation controller is textbook consensus.** No novelty is claimed there.
 - **The topology guard computes exact Betti numbers** (pieces and holes) of the swarm's communication
-  complex. It replaced a graph cycle count (E − V + C) that reported 3 holes in a filled tetrahedron, which has none (K1b). It is checked
+  complex. Measured against the standard tools (K5, 2026-10-05): β₀ is the textbook Laplacian component
+  count, and β₁ for coverage holes is prior work (de Silva & Ghrist 2007); the MST connectivity margin
+  warns before a break where β₀ cannot. It replaced a graph cycle count (E − V + C) that reported 3 holes in a filled tetrahedron, which has none (K1b). It is checked
   against a reference on 200 random point clouds.
 - **Signing alone would not refuse a replay.** The dock verifier also tracks nonces, so a genuine record
   sent twice is refused (line 7 above).
@@ -93,12 +100,15 @@ tested on a phone. The long-term design target (deep-space and edge swarms on re
 | Docking signed with ML-DSA-65; tampered, wrong-key and replayed records refused | `skn/ccpl.py` | 3 tests |
 | Evidence vault: SHA3-512 chain that detects edits, forgeries and reordering | `skn/node.py` | 6 tests |
 | Pose consensus, propulsion allocator, ISRU filter | `skn/swarm.py`, `skn/node.py` | tests |
+| Standard connectivity signals beside the guard: Laplacian λ₂, MST connectivity margin (2026-10-05) | `skn/topology.py` | K5, `scripts/k5_guard_vs_rivals.py` |
+| Optional closed loop through the thrusters, optional paired (±z) thrusters; defaults unchanged | `skn/node.py` | K3, `scripts/k3_closed_loop.py` |
+| Optional vault file: every record appended, `verify_file` checks the full history | `skn/node.py` | K6, `scripts/k6_vault_file.py` |
 | Live terminal dashboard | `python skn_orbital_tui.py` | every number from `skn` or the device |
 
 **Not built:** hardware of any kind, a ROS2 bridge, a web dashboard. **Known physics gaps:** the
-"natural gradient" metric is currently the identity, the thrusters cannot push in −z, and actuator
-limits are not fed back into motion (see sections 1 and the open experiment K3 in
-`docs/RESULTS_2026-09-27.md`). The terminal and video dashboards in `mockups/` use random data and
+"natural gradient" metric is currently the identity, the default thrusters cannot push in −z, and by
+default actuator limits are not fed back into motion. Both now have options (paired thrusters, closed
+loop); see K3 in `docs/RESULTS_2026-10-05b.md`. The terminal and video dashboards in `mockups/` use random data and
 are labelled as such.
 
 ## What This Is
@@ -110,7 +120,7 @@ SKN-V1 is a software-defined swarm robotics framework that runs on anything from
 | **Natural Gradient Kinematic Control** | SE(3) pose tracking on the Fisher-Rao information manifold | Intended to replace Euclidean gradient descent with Riemannian natural gradients. MEASURED: the metric is currently a scalar multiple of the identity, so the step is Euclidean in direction. See Natural Gradient on SE(3) below |
 | **Riemannian Gossip Consensus** | KL-divergence minimization with adaptive Fisher metrics | *Measured against the code (2026-09-27):* `gossip_step` averages neighbour **poses**, weighted by each node's Fisher metric, which is isotropic (section 1). It is Laplacian consensus on poses; no belief distributions and no KL are computed. See section 2 |
 | **C-CPL Docking** *(built, signed, 2026-09-27)* | ML-DSA-65 (FIPS 204) signature over SHA3-512 of the manifest, via the pure-Python reference `dilithium-py` | Docking locks only with a signature, and fails closed without the library. `skn.ccpl.verify_dock` checks the record, the key and the nonce. Not side-channel hardened. See section 3 |
-| **Evidence Vault** | SHA3-512 tamper-evident hash chain with per-state attestation | Every state transition is hashed and chained; `verify_chain` walks the retained window (newest 256 records) linearly. No Merkle tree exists (corrected 2026-10-05) |
+| **Evidence Vault** | SHA3-512 tamper-evident hash chain with per-state attestation | Every state transition is hashed and chained; `verify_chain` walks the retained window (newest 256 records) linearly; with `vault_path`, every record is also appended to a file that `verify_file` walks from genesis (K6). No Merkle tree exists (corrected 2026-10-05) |
 | **ISRU Monitor** | Gibbs free energy filtering for resource extraction | Bayesian update of P(ore \| sensor data) using thermodynamic priors; threshold at ΔG < −50 kJ/mol |
 | **Betti-1 Topology Guard** *(built, 2026-09-27)* | Exact β₀ and β₁ of the Vietoris-Rips complex over GF(2), pure NumPy (`skn/topology.py`) | Fragmentation is β₀ > 1; a coverage hole is β₁ > 0. Replaces a graph cycle count that called every triangle a hole (section 4) |
 | **ROS2 Bridge** *(not built)* | Standard ROS2 Humble topic/service API | Exposes `/swarm/pose_array`, `/skn/dock_request`, and diagnostic topics with QoS `reliable, depth 10` |
@@ -153,7 +163,7 @@ cd skn-v1-
 # Install (editable, for development)
 pip install -e .
 
-# Run tests (25 tests, all passing; the docking tests need `pip install dilithium-py`)
+# Run tests (29 tests, all passing; the docking tests need `pip install dilithium-py`)
 python tests/run_tests.py
 
 # Run demos
@@ -414,9 +424,10 @@ skn-v1-/
     simulation_v3.py       formation_v3
     geometric_policy.py    not imported by __init__; unused
   skn_orbital_tui.py       live terminal dashboard (real data)
-  scripts/                 demo_formation, demo_visual, bench_k1_k2, topology_guard_k1e, plot_formation_convergence
-  tests/run_tests.py       25 tests
-  docs/                    PREREG/RESULTS 2026-09-27 and 2026-10-05
+  scripts/                 demo_formation, demo_visual, bench_k1_k2, topology_guard_k1e, plot_formation_convergence,
+                           k3_closed_loop, k4_vault_window, k5_guard_vs_rivals, k6_vault_file (registered harnesses)
+  tests/run_tests.py       29 tests
+  docs/                    PREREG/RESULTS 2026-09-27, 2026-10-05 and 2026-10-05b
   experiments/partition_veritas/  separate research experiment (its own PREREGISTRATION.md)
   assets/  concept/        images (see Illustrations for which are not results)
   mockups/                 look-only dashboards with random data, labelled
@@ -480,12 +491,22 @@ the four withdrawn claims above word for word, directly under their withdrawal):
    persistence barcode), O(n³) triangles: 8.93 ms at n = 64 on the container.
 4. **ISRU Monitor uses synthetic thermodynamic data.** The priors are placeholders.
 5. **Gossip is pose consensus.** See section 2.
-6. **The evidence vault keeps only the newest 256 records, in memory.** Older records are dropped and
-   cannot be re-checked; `vault_path` is stored but nothing is written to it; `chain_length` is the
+6. **The evidence vault keeps only the newest 256 records, in memory.** Older records are dropped from
+   memory. Since K6 (2026-10-05), passing `vault_path` appends every record to a file that
+   `EvidenceVault.verify_file` re-checks from genesis; the file is unsigned, and deleting its newest lines
+   is not detected (registered and confirmed, K6d). Without a path nothing is persisted; `chain_length` is the
    retained count, not the total. Until 2026-10-05 an honest vault with more than 256 records failed its
    own `verify_chain()` (so any node run longer than about 255 steps reported BROKEN); fixed and tested in
    K4 (docs/PREREG_2026-10-05.md, docs/RESULTS_2026-10-05.md). An unkeyed hash chain can still be rewritten
    end to end: tamper-evident against partial edits, not tamper-proof.
+7. **The default thrusters cannot push down.** All six point +0.3 in z and only push. With the closed-loop
+   option a node never descended on any of 50 targets (K3). The paired option fixes this with 12
+   thrusters; adopting it is an open design decision.
+8. **No noise, delay or packet loss is simulated.** The 10⁻⁵ m formation errors are for an ideal loop.
+9. **Dock replay protection lives in memory.** `verify_dock` refuses a repeated nonce only if the caller
+   passes the same `seen_nonces` set; the set is not persisted, so a genuine record replayed after a
+   restart verifies again. The manifest's `time` is signed but never checked, so there is no freshness
+   window either (added 2026-10-05).
 
 ---
 

@@ -198,5 +198,48 @@ class TestLiveDashboard(unittest.TestCase):
         if ccpl.available():
             self.assertEqual(last.count("sig VALID"), 6)
 
+
+class TestRound20261005b(unittest.TestCase):
+    """K5, K3, K6 (docs/PREREG_2026-10-05b.md); the full registered runs are scripts/k5_*, k3_*, k6_*."""
+    def test_k5_b0_equals_laplacian_nullity_and_margin(self):
+        from skn.topology import betti, components, laplacian_spectrum, connectivity_margin
+        rng = np.random.default_rng(7)
+        for _ in range(50):
+            P = rng.uniform(0, 10, (int(rng.integers(3, 10)), 3)); r = float(rng.uniform(1, 8))
+            b0, _ = betti(P, r)
+            self.assertEqual(b0, components(P, r))
+            self.assertEqual(b0, int(np.sum(laplacian_spectrum(P, r) < 1e-9)))
+            self.assertEqual(connectivity_margin(P, r) > 0, b0 == 1)
+
+    def test_k3_paired_can_descend_legacy_cannot(self):
+        from skn.node import PropulsionAllocator
+        for g, want in (("legacy", 0.0), ("paired", -0.5)):
+            a = PropulsionAllocator(geometry=g)
+            z = float(a.realize(a.allocate(np.array([0, 0, -1, 0, 0, 0.0])))[2])
+            self.assertAlmostEqual(z, want, places=6)
+
+    def test_k3_closed_loop_paired_reaches_below(self):
+        from skn.node import SKNV1_SovereignNode
+        n = SKNV1_SovereignNode("t", closed_loop=True, thruster_geometry="paired")
+        for _ in range(500):
+            n.step(np.array([0, 0, -3, 0, 0, 0.0]))
+        self.assertLess(float(n.pose[2]), -1.0)
+
+    def test_k6_vault_file_detects_dropped_record_edit(self):
+        import json, tempfile
+        from skn.node import EvidenceVault
+        path = os.path.join(tempfile.mkdtemp(), "v.jsonl")
+        v = EvidenceVault(path)
+        for i in range(300):
+            v.commit(np.full(6, float(i)), {"i": i})
+        self.assertTrue(EvidenceVault.verify_file(path))
+        ls = open(path).readlines()
+        rec = json.loads(ls[5]); rec["hash"] = "00" * 64; ls[5] = json.dumps(rec) + "\n"
+        open(path, "w").writelines(ls)
+        self.assertFalse(EvidenceVault.verify_file(path))
+        self.assertTrue(v.verify_chain())  # record 6 left memory long ago
+        with self.assertRaises(ValueError):
+            EvidenceVault(path)
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

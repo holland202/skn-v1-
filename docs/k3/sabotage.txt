@@ -1,0 +1,19 @@
+K3 | SABOTAGE: closed_loop ignored | python 3.13.16
+  K3a legacy command z=-1: realized translation [0.0, 0.0, 0.0]
+  K3a legacy command z=+1: realized translation [-0.0, 0.0, 1.0]
+  K3a paired command z=-1: realized translation [-0.0, 0.0, -0.5]
+  K3a paired command z=+1: realized translation [-0.0, 0.0, 0.5]
+  K3b legacy, 50 targets x 1000 steps: z never decreased: False; 20 targets below z=-1, none got closer in z: False
+  K3c target (0,0,-5), 1000 steps: paired z non-increasing True, final distance 0.3994 m; legacy final distance 0.3994 m
+  K3d paired, 50 targets x 3000 steps: final/initial distance < 0.5 in 50 of 50 (max ratio 0.0543, median 0.0219)
+  (unregistered) legacy, same 50 targets x 3000 steps: final/initial < 0.5 in 50 of 50 (median ratio 0.0219, max 0.0543)
+  K3e clipping off, closed vs open loop, max pose difference after 300 steps: legacy 0.00e+00  paired 0.00e+00
+  K3f default node vs 7510e5b, 300 steps: poses identical True ([4.37443208694458, -2.6246602535247803, 1.7497735023498535])
+  K3a  HELD
+  K3b  REFUTED
+  K3c  REFUTED
+  K3d  HELD
+  K3e  HELD
+  K3f  HELD
+VERDICT 4 of 6 as registered (K3g is --sabotage)
+DIGEST 148ddfa0e9c145b85440ebf345424d5735154e02a427bbda65f7ff6b7e4f9185

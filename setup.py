@@ -1,11 +1,5 @@
-from setuptools import setup, find_packages
+# Shim for tools that still call setup.py. Dependencies and metadata live in pyproject.toml only
+# (2026-10-05: this file declared numpy and scipy while pyproject.toml declared four packages).
+from setuptools import setup
 
-setup(
-    name="skn-v1",
-    version="1.7.0",
-    description="Sovereign Kinematic Node",
-    packages=find_packages(),
-    install_requires=["numpy", "scipy"],
-    python_requires=">=3.9",
-)
-
+setup()

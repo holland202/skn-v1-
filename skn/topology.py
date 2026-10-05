@@ -86,3 +86,64 @@ def graph_cycle_rank(points, r):
         if a != b:
             parent[a] = b
     return len(edges) - n + len({find(i) for i in range(n)})
+
+
+# ---- Standard connectivity signals, the rivals to the guard (docs/PREREG_2026-10-05b.md, K5) ----
+
+def _adjacency(points, r):
+    P = np.asarray(points, dtype=float)
+    D = np.linalg.norm(P[:, None, :] - P[None, :, :], axis=-1)
+    return D, (D < r) & ~np.eye(len(P), dtype=bool)
+
+
+def components(points, r):
+    """Number of connected components of the communication graph (union-find). Equals b0 (K5a)."""
+    n = len(points)
+    _, adj = _adjacency(points, r)
+    parent = list(range(n))
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    for i, j in zip(*np.nonzero(np.triu(adj))):
+        parent[find(i)] = find(j)
+    return len({find(i) for i in range(n)})
+
+
+def laplacian_spectrum(points, r, weighted=False):
+    """Eigenvalues (ascending) of the graph Laplacian. Weighted: w = 1 - d/r on each edge (d < r)."""
+    D, adj = _adjacency(points, r)
+    W = np.where(adj, 1.0 - D / r, 0.0) if weighted else adj.astype(float)
+    L = np.diag(W.sum(axis=1)) - W
+    return np.linalg.eigvalsh(L)
+
+
+def algebraic_connectivity(points, r, weighted=False):
+    """lambda_2 of the Laplacian (Fiedler 1973): 0 when disconnected, larger when more redundantly linked."""
+    ev = laplacian_spectrum(points, r, weighted)
+    return float(ev[1]) if len(ev) > 1 else 0.0
+
+
+def connectivity_margin(points, r):
+    """r minus the longest edge of the minimum spanning tree of all pairwise distances (Prim, O(n^2)).
+
+    The graph at radius r (edges where d < r) is connected exactly when this is > 0. Unlike b0 it is
+    continuous: it says how far the swarm is from fragmenting, in metres."""
+    D, _ = _adjacency(points, r)
+    n = len(D)
+    if n < 2:
+        return float(r)
+    in_tree = np.zeros(n, dtype=bool)
+    in_tree[0] = True
+    best = D[0].copy()
+    longest = 0.0
+    for _ in range(n - 1):
+        cand = np.where(in_tree, np.inf, best)
+        k = int(np.argmin(cand))
+        longest = max(longest, float(cand[k]))
+        in_tree[k] = True
+        best = np.minimum(best, D[k])
+    return float(r) - longest
