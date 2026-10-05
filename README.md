@@ -166,7 +166,7 @@ cd skn-v1-
 # Install (editable, for development)
 pip install -e .
 
-# Run tests (29 tests, all passing; the docking tests need `pip install dilithium-py`)
+# Run tests (30 tests, all passing; the docking tests need `pip install dilithium-py`)
 python tests/run_tests.py
 
 # Run demos
@@ -428,9 +428,9 @@ skn-v1-/
     geometric_policy.py    not imported by __init__; unused
   skn_orbital_tui.py       live terminal dashboard (real data)
   scripts/                 demo_formation, demo_visual, bench_k1_k2, topology_guard_k1e, plot_formation_convergence,
-                           k3_closed_loop, k4_vault_window, k5_guard_vs_rivals, k6_vault_file (registered harnesses)
-  tests/run_tests.py       29 tests
-  docs/                    PREREG/RESULTS 2026-09-27, 2026-10-05 and 2026-10-05b; external/ (outside input, verbatim); findings/
+                           k3_closed_loop, k4_vault_window, k5_guard_vs_rivals, k6_vault_file, k8_nonce_store (registered harnesses)
+  tests/run_tests.py       30 tests
+  docs/                    PREREG/RESULTS 2026-09-27, 2026-10-05, 2026-10-05b and 2026-10-05c; external/ (outside input, verbatim); findings/
   CHALLENGE.md             the open challenge: targets, known limits, who controls what
   experiments/partition_veritas/  separate research experiment (its own PREREGISTRATION.md)
   assets/  concept/        images (see Illustrations for which are not results)
@@ -509,7 +509,9 @@ the four withdrawn claims above word for word, directly under their withdrawal):
 8. **No noise, delay or packet loss is simulated.** The 10⁻⁵ m formation errors are for an ideal loop.
 9. **Dock replay protection lives in memory.** `verify_dock` refuses a repeated nonce only if the caller
    passes the same `seen_nonces` set; the set is not persisted, so a genuine record replayed after a
-   restart verifies again. The manifest's `time` is signed but never checked, so there is no freshness
+   restart verifies again. Until K8 (2026-10-05) a call with no set at all skipped the replay check and
+   accepted; it now refuses (`docs/RESULTS_2026-10-05c.md`). Nothing issues or revokes dock keys: the
+   verifier trusts whichever public key its caller passes, and there is no membership or expiry. The manifest's `time` is signed but never checked, so there is no freshness
    window either (added 2026-10-05).
 
 ---

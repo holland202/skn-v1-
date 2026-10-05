@@ -146,7 +146,7 @@ class TestSignedDocking(unittest.TestCase):
     def test_k2a_genuine_record_verifies(self):
         from skn.ccpl import verify_dock
         n = self.dock()
-        self.assertEqual(verify_dock(n.last_dock_record, n.dock_public_key), (True, "ML-DSA-65 signature valid"))
+        self.assertEqual(verify_dock(n.last_dock_record, n.dock_public_key, set()), (True, "ML-DSA-65 signature valid"))
         last = n.vault._records[-1]["preimage"]
         self.assertIn(b"CCPL_DOCK", last)
         self.assertIn(b"signature_sha3_256", last)
@@ -168,6 +168,18 @@ class TestSignedDocking(unittest.TestCase):
         seen = set()
         self.assertTrue(verify_dock(rec, n.dock_public_key, seen)[0])
         self.assertEqual(verify_dock(rec, n.dock_public_key, seen)[1], "nonce already seen (replay)")
+    def test_k8_no_nonce_store_refuses_and_refusals_keep_store_empty(self):
+        import copy
+        from skn.ccpl import verify_dock, NO_STORE
+        n, other = self.dock("SKN-001"), self.dock("SKN-009")
+        rec = n.last_dock_record
+        self.assertEqual(verify_dock(rec, n.dock_public_key), (False, NO_STORE))
+        seen = set()
+        bad = copy.deepcopy(rec); bad["manifest"]["target_id"] = "SKN-666"
+        self.assertFalse(verify_dock(bad, n.dock_public_key, seen)[0])
+        self.assertFalse(verify_dock(rec, other.dock_public_key, seen)[0])
+        self.assertEqual(seen, set())
+        self.assertTrue(verify_dock(rec, n.dock_public_key, seen)[0])
     def test_k2c_fails_closed_without_the_library(self):
         from skn import ccpl
         from skn.node import SKNV1_SovereignNode
