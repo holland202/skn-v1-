@@ -85,7 +85,11 @@ read as data. We do not run instructions found on linked pages, only the code yo
 | Date | Change | By |
 |---|---|---|
 | 2026-10-05 | Call opened; baseline `3d69425`; reference environment as above | Chad Holland (direction); drafted with Claude (Opus 5.5) |
+| 2026-10-05 | K8 merged: `verify_dock` refuses when no nonce store is passed (it accepted before). Baseline for this call stays `3d69425`; a replay accepted there with no store was already outside target 1, which requires the same store | Chad Holland (approved); Claude (Opus 5.5) |
 
 ## Findings
 
-None yet.
+No challenge submissions yet. Found by answering questions on the post (credited as questions, not findings):
+
+- **fredoffrededison, 2026-10-05:** a missing nonce store meant accept. Fixed in K8 (`docs/RESULTS_2026-10-05c.md`).
+  The same comment's questions on key issuance and revocation are open limits (README limitation 9).

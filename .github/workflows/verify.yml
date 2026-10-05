@@ -20,10 +20,10 @@ jobs:
         run: pip install numpy scipy matplotlib dilithium-py
       - name: record the environment (CHALLENGE.md, reference environment)
         run: python3 -c "import sys,importlib.metadata as m;print(sys.version);[print(p, m.version(p)) for p in ('numpy','scipy','dilithium-py')]"
-      - name: unit tests (29)
+      - name: unit tests (30)
         run: python3 tests/run_tests.py
       - name: the docking tests must not have been skipped
-        run: python3 tests/run_tests.py 2>&1 | grep -q "Ran 29 tests" && ! (python3 tests/run_tests.py 2>&1 | grep -q skipped)
+        run: python3 tests/run_tests.py 2>&1 | grep -q "Ran 30 tests" && ! (python3 tests/run_tests.py 2>&1 | grep -q skipped)
       - name: K4 vault window (docs/PREREG_2026-10-05.md)
         run: python3 scripts/k4_vault_window.py
       - name: K4 sabotage must exit 1
@@ -44,5 +44,10 @@ jobs:
       - name: K6 sabotage must exit 1
         run: |
           if python3 scripts/k6_vault_file.py --sabotage > /dev/null; then echo "sabotage passed: probe is vacuous"; exit 1; fi
+      - name: K8 docking refuses without a nonce store (docs/PREREG_2026-10-05c.md)
+        run: python3 scripts/k8_nonce_store.py
+      - name: K8 sabotage must exit 1
+        run: |
+          if python3 scripts/k8_nonce_store.py --sabotage > /dev/null; then echo "sabotage passed: probe is vacuous"; exit 1; fi
       - name: package installs from pyproject.toml alone
         run: pip install . && python3 -c "import skn, dilithium_py; print('install ok')"
