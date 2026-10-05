@@ -18,6 +18,8 @@ jobs:
           python-version: '3.12'
       - name: install deps
         run: pip install numpy scipy matplotlib dilithium-py
+      - name: record the environment (CHALLENGE.md, reference environment)
+        run: python3 -c "import sys,importlib.metadata as m;print(sys.version);[print(p, m.version(p)) for p in ('numpy','scipy','dilithium-py')]"
       - name: unit tests (29)
         run: python3 tests/run_tests.py
       - name: the docking tests must not have been skipped
