@@ -1,0 +1,22 @@
+K9 | registered run | python 3.13.16 | T0=1800000000.0 N_ORDER=1000 N_AFTER=100 MAX_SKEW=5.0
+  P1 verify_dock, record at T0-3600, empty store: (True, 'ML-DSA-65 signature valid')
+  P2 mark=T0: T0-3600 -> (False, "time is at or below this key's high-water mark"); T0 -> (False, "time is at or below this key's high-water mark"); T0+1 -> (True, 'fresh'); mark after 1800000001.0
+  P3 in order 1000/1000; shuffled (seed 0) 12/1000; left-to-right maxima 12; H_1000 = 7.4855
+  P4 no_skew: future record at T0+86400 accepted True; then 0/100 legitimate accepted
+  P4 max_skew: future record at T0+86400 accepted False; then 5/100 legitimate accepted
+  (unregistered diagnostic) max_skew with now=T0+100: future accepted False; then 100/100 legitimate accepted
+  P5 naive 'NaN <= mark' is False, so a naive check accepts NaN: True
+     time NaN: ['signature valid', False, 'malformed time: not a finite number']
+     time inf: ['signature valid', False, 'malformed time: not a finite number']
+     time "1": ['signature valid', False, 'malformed time: not a finite number']
+     time True: ['signature valid', False, 'malformed time: not a finite number']
+     refused 4 of 4 reachable (0 unreachable)
+  P6 tests/run_tests.py exit 0: True; replay: (True, 'fresh') then (False, 'nonce already seen (replay)'); stale refused (False, "time is at or below this key's high-water mark"), its nonce added to the store: False
+  P1  HELD
+  P2  HELD
+  P3  HELD
+  P4  REFUTED
+  P5  HELD
+  P6  HELD
+VERDICT 5 of 6 as registered (P7 is --sabotage)
+DIGEST deef86b20aefbebd55fb9c725088a290a36a18e901f0ef3a2534c67f22f4988d

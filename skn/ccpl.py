@@ -81,3 +81,19 @@ def verify_dock(record, public_key, seen_nonces=None):
     except (KeyError, TypeError, ValueError) as exc:
         return False, f"malformed record: {type(exc).__name__}"
     return True, "ML-DSA-65 signature valid"
+
+
+def check_fresh(manifest, key_fp, marks, now, max_skew=None):
+    """(ok, why). K9 candidate (docs/PREREG_2026-10-05d.md): a per-key high-water mark on the signed `time`.
+    Does not change `marks`; the caller sets marks[key_fp] = time only after every check, the nonce included,
+    has passed. Not called by verify_dock: whether docking requires marks is an open contract decision.
+    Known costs (K9 P3, P4): out-of-order records are refused, and without max_skew one future-dated record
+    locks the key out."""
+    t = manifest.get("time") if isinstance(manifest, dict) else None
+    if isinstance(t, bool) or not isinstance(t, (int, float)) or t != t or t in (float("inf"), float("-inf")):
+        return False, "malformed time: not a finite number"
+    if max_skew is not None and t > now + max_skew:
+        return False, "time is in the future beyond max_skew"
+    if key_fp in marks and t <= marks[key_fp]:
+        return False, "time is at or below this key's high-water mark"
+    return True, "fresh"

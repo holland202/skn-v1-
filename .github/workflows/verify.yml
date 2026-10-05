@@ -49,5 +49,10 @@ jobs:
       - name: K8 sabotage must exit 1
         run: |
           if python3 scripts/k8_nonce_store.py --sabotage > /dev/null; then echo "sabotage passed: probe is vacuous"; exit 1; fi
+      - name: K9 freshness mark (docs/PREREG_2026-10-05d.md)
+        run: python3 scripts/k9_freshness.py
+      - name: K9 sabotage must exit 1
+        run: |
+          if python3 scripts/k9_freshness.py --sabotage > /dev/null; then echo "sabotage passed: probe is vacuous"; exit 1; fi
       - name: package installs from pyproject.toml alone
         run: pip install . && python3 -c "import skn, dilithium_py; print('install ok')"

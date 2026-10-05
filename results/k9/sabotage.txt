@@ -1,0 +1,23 @@
+K9 | SABOTAGE: check_fresh always accepts | python 3.13.16 | T0=1800000000.0 N_ORDER=1000 N_AFTER=100 MAX_SKEW=5.0
+  P1 verify_dock, record at T0-3600, empty store: (True, 'ML-DSA-65 signature valid')
+  P2 mark=T0: T0-3600 -> (True, 'fresh (SABOTAGE)'); T0 -> (True, 'fresh (SABOTAGE)'); T0+1 -> (True, 'fresh (SABOTAGE)'); mark after 1800000001.0
+  P3 in order 1000/1000; shuffled (seed 0) 1000/1000; left-to-right maxima 12; H_1000 = 7.4855
+  P4 no_skew: future record at T0+86400 accepted True; then 100/100 legitimate accepted
+  P4 max_skew: future record at T0+86400 accepted True; then 100/100 legitimate accepted
+  (unregistered diagnostic) max_skew with now=T0+100: future accepted True; then 100/100 legitimate accepted
+  P5 naive 'NaN <= mark' is False, so a naive check accepts NaN: True
+     time NaN: ['signature valid', True, 'fresh (SABOTAGE)']
+     time inf: ['signature valid', True, 'fresh (SABOTAGE)']
+     time "1": ['signature valid', True, 'fresh (SABOTAGE)']
+     time True: ['signature valid', True, 'fresh (SABOTAGE)']
+     refused 0 of 4 reachable (0 unreachable)
+  P6 tests/run_tests.py exit 0: True; replay: (True, 'fresh (SABOTAGE)') then (False, 'nonce already seen (replay)'); stale refused (True, 'fresh (SABOTAGE)'), its nonce added to the store: True
+  P1  HELD
+  P2  REFUTED
+  P3  REFUTED
+  P4  REFUTED
+  P5  REFUTED
+  P6  REFUTED
+VERDICT 1 of 6 as registered (P7 is --sabotage)
+DIGEST 523867dfeb3cdb18261842b1b589e80b5f34b822a36ce84b483b16da35212195
+  P7  HELD (sabotage refutes P2: True)
