@@ -2,7 +2,7 @@
 """k8_nonce_store.py - K8: does docking refuse when there is no nonce store? (docs/PREREG_2026-10-05c.md)
 
   python scripts/k8_nonce_store.py              # registered run
-  python scripts/k8_nonce_store.py --sabotage   # the skip-when-missing branch restored; K8b must fail, exit 1
+  python scripts/k8_nonce_store.py --sabotage   # skip-when-missing restored; exit 1 only if K8b is refuted. Control: --sabotage-noop (K8b holds, exit 0)
 
 K8a reads skn/ccpl.py at ee573a3 with `git show`, so it needs the git history. Needs dilithium-py.
 Exit 0 only if the outcome equals RECORDED (held predictions and digest).
@@ -68,10 +68,10 @@ def short_calls():
 
 
 def main():
-    sabotage = "--sabotage" in sys.argv
-    if sabotage:
-        ccpl.verify_dock = sabotaged_verify
-    print(f"K8 | {'SABOTAGE: missing store skips the replay check' if sabotage else 'registered run'} | "
+    sabotage, noop = "--sabotage" in sys.argv, "--sabotage-noop" in sys.argv
+    if sabotage or noop:
+        ccpl.verify_dock = sabotaged_verify if sabotage else passthrough_verify
+    print(f"K8 | {'SABOTAGE: missing store skips the replay check' if sabotage else 'SABOTAGE-NOOP: wrapper only' if noop else 'registered run'} | "
           f"python {sys.version.split()[0]}")
     if not ccpl.available():
         print("COULD NOT LOOK: dilithium-py is not installed")
@@ -137,9 +137,18 @@ def main():
     dg = hashlib.sha256(json.dumps({"r": res, "v": v}, sort_keys=True).encode()).hexdigest()
     print(f"VERDICT {len(held)} of {len(v)} as registered (K8f is --sabotage)")
     print(f"DIGEST {dg}")
-    if sabotage or RECORDED is None:
+    if sabotage:
+        return 1 if not v["K8b"] else 0   # exit 1 only because K8b is refuted
+    if noop:
+        return 0 if v["K8b"] else 1       # control: same patching path, K8b must hold
+    if RECORDED is None:
         return 0 if all(v.values()) else 1
     return 0 if (held, dg) == RECORDED else 1
+
+
+def passthrough_verify(record, public_key, seen_nonces=None):
+    """Control: the same wrapper shape as sabotaged_verify, with the one behaviour under test left alone."""
+    return REAL_VERIFY(record, public_key, seen_nonces)
 
 
 if __name__ == "__main__":

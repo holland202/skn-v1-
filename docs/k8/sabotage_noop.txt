@@ -1,0 +1,15 @@
+K8 | SABOTAGE-NOOP: wrapper only | python 3.13.16
+  K8a code at ee573a3, genuine record twice, no store: (True, True)
+  K8b fix, no store, twice: (False, 'no nonce store: replay cannot be checked (fail closed)') (False, 'no nonce store: replay cannot be checked (fail closed)')
+      with a store: (True, 'ML-DSA-65 signature valid') then (False, 'nonce already seen (replay)')
+  K8c no store: tampered -> 'signature does not verify'; other key -> 'record names a different public key'; missing field -> 'malformed record: KeyError'
+  K8d shared store: refusals [False, False, False], store size after them 0, genuine afterwards True
+  K8e calls without a store: ['scripts/k8_nonce_store.py:91', 'scripts/k8_nonce_store.py:91', 'scripts/k8_nonce_store.py:103', 'scripts/k8_nonce_store.py:104', 'scripts/k8_nonce_store.py:106', 'scripts/k8_nonce_store.py:86', 'scripts/k8_nonce_store.py:86']; demo_30s DEMO PASS: True; dashboard sig VALID: 6 of 6
+  (unregistered, added after the first run) the same scan excluding this harness's own deliberate no-store calls: []
+  K8a  HELD
+  K8b  HELD
+  K8c  HELD
+  K8d  HELD
+  K8e  REFUTED
+VERDICT 4 of 5 as registered (K8f is --sabotage)
+DIGEST 1e63fef0914ae1a2b271edd3dc446abf5fe7e3780b07caeda34a1b5c0a1d4f21
