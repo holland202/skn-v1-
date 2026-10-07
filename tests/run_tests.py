@@ -180,6 +180,9 @@ class TestSignedDocking(unittest.TestCase):
         self.assertFalse(verify_dock(rec, other.dock_public_key, seen)[0])
         self.assertEqual(seen, set())
         self.assertTrue(verify_dock(rec, n.dock_public_key, seen)[0])
+class TestSignedDockingWithoutLibrary(unittest.TestCase):
+    """K2c outside TestSignedDocking, whose setUp skips when dilithium-py is absent: that skipped this test in
+    the one environment where the library really is absent. It patches ML_DSA_65 to None, so it needs no library."""
     def test_k2c_fails_closed_without_the_library(self):
         from skn import ccpl
         from skn.node import SKNV1_SovereignNode
