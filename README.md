@@ -580,3 +580,7 @@ for the full system, not measured benchmarks of the current code.
 *Vincit Omnia Veritas — the vision is nine subsystems; today seven run and are
 tested, and this note says so plainly rather than letting the Quick Start fail
 silently.*
+
+## Related AI governance research
+
+SKN-V1 studies simulated swarm topology, signatures, and evidence chains. Sovereign Veritas separately studies evidence-bound AI action authorization. A simulated signed docking record is not proof that physical hardware executed safely. See [Sovereign Veritas — experimental AI governance and action permission gate](https://github.com/holland202/sovereign-veritas) for its current maintenance-only status, recorded failures, test contract, and explicit limitations. This cross-reference is for research navigation, not an integrated-system or independent-verification claim.
